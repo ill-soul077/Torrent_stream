@@ -148,6 +148,12 @@ struct SearchView: View {
                             .foregroundColor(.white)
                     }
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: CommunityFeedView()) {
+                        Image(systemName: "person.3.fill")
+                            .foregroundColor(.purple)
+                    }
+                }
             }
             .sheet(item: $selectedTorrent) { torrent in
                 TorrentDetailView(torrent: torrent)

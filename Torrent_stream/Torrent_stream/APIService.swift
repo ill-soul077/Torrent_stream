@@ -219,6 +219,48 @@ final class APIService {
         try await performEmpty(req)
     }
 
+    func getCommunityPosts() async throws -> [CommunityPost] {
+        let req = try request("/community/posts")
+        return try await perform(req)
+    }
+
+    func createCommunityPost(caption: String, torrent: TorrentItem) async throws -> CommunityPostDetail {
+        let req = try request(
+            "/community/posts",
+            method: "POST",
+            body: CommunityPostCreateRequest(caption: caption, torrent: torrent.toPayload())
+        )
+        return try await perform(req)
+    }
+
+    func getCommunityPost(_ id: String) async throws -> CommunityPostDetail {
+        let req = try request("/community/posts/\(id.urlEncoded)")
+        return try await perform(req)
+    }
+
+    func getCommunityComments(postId: String) async throws -> [CommunityComment] {
+        let req = try request("/community/posts/\(postId.urlEncoded)/comments")
+        return try await perform(req)
+    }
+
+    func addCommunityComment(postId: String, content: String) async throws -> CommunityComment {
+        let req = try request(
+            "/community/posts/\(postId.urlEncoded)/comments",
+            method: "POST",
+            body: CommunityCommentCreateRequest(content: content)
+        )
+        return try await perform(req)
+    }
+
+    func voteCommunityPost(postId: String, value: Int) async throws -> CommunityVoteState {
+        let req = try request(
+            "/community/posts/\(postId.urlEncoded)/vote",
+            method: "PUT",
+            body: CommunityVoteRequest(value: value)
+        )
+        return try await perform(req)
+    }
+
     @discardableResult
     func startMagnetSession(magnet: String, hash: String) async throws -> StreamStartResponse {
         var req = try request("/stream/start", method: "POST")

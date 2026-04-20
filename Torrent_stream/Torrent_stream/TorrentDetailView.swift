@@ -5,6 +5,7 @@ struct TorrentDetailView: View {
     @Environment(\.dismiss) var dismiss
     @State private var showPlayer = false
     @State private var showAddToPlaylist = false
+    @State private var showCommunityComposer = false
     @State private var toast: String? = nil
 
     var body: some View {
@@ -106,6 +107,10 @@ struct TorrentDetailView: View {
                     Button("Done") { dismiss() }
                         .foregroundColor(.white)
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Post") { showCommunityComposer = true }
+                        .foregroundColor(.purple)
+                }
             }
         }
         .overlay(
@@ -122,6 +127,11 @@ struct TorrentDetailView: View {
         }
         .sheet(isPresented: $showAddToPlaylist) {
             AddToPlaylistSheet(torrent: torrent)
+        }
+        .sheet(isPresented: $showCommunityComposer) {
+            CommunityPostComposerView(torrent: torrent) { message in
+                showToast(message)
+            }
         }
     }
 
