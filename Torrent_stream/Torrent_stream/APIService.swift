@@ -222,18 +222,20 @@ final class APIService {
     // ─── Streaming (new streamlined flow) ───────────────────────────────
 
     func getStreamURL(magnet: String, hash: String) async throws -> URL? {
-        // New streamlined flow: get stream URL directly from magnet link.
-        // Usage: Call this to start torrent and get a URL for AVPlayer immediately.
-        // AVPlayer will buffer while the torrent metadata loads.
+        // Start torrent backend session and return AVPlayer-compatible stream URL.
         let path = "/stream/magnet/\(hash.urlEncoded)?magnet=\(magnet.urlEncoded)"
         let req = try request(path)
         let response: MagnetStreamResponse = try await perform(req)
-        
-        // Construct full URL from the stream path
-        guard let fullURL = URL(string: APIConfig.baseURL + response.stream_path) else {
+
+        guard let tok = token else { throw APIError.noToken }
+        guard var components = URLComponents(string: APIConfig.baseURL + response.stream_path) else {
             return nil
         }
-        return fullURL
+
+        var queryItems = components.queryItems ?? []
+        queryItems.append(URLQueryItem(name: "token", value: tok))
+        components.queryItems = queryItems
+        return components.url
     }
 
     @discardableResult

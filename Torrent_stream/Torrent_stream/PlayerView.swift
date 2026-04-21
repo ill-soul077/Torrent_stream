@@ -12,21 +12,20 @@ final class PlayerViewModel: ObservableObject {
 
     @Published var phase: Phase = .idle
     @Published var statusText = "Starting playback…"
-    @Published var streamStatus: StreamStatus? = nil
     @Published var player: AVPlayer? = nil
 
     func start(torrent: TorrentItem) async {
         stop()
         phase = .loading
-        statusText = "Preparing video…"
+        statusText = "Starting torrent session…"
 
         do {
-            guard let playbackURL = Self.playbackURL(for: torrent) else {
-                phase = .failed("No playable video URL is available for this item.")
+            guard let streamURL = try await APIService.shared.getStreamURL(magnet: torrent.magnet, hash: torrent.hash) else {
+                phase = .failed("Could not build stream URL from backend response.")
                 return
             }
 
-            let player = AVPlayer(url: playbackURL)
+            let player = AVPlayer(url: streamURL)
             self.player = player
             self.phase = .playing
             self.statusText = "Streaming: \(torrent.name)"
@@ -39,16 +38,7 @@ final class PlayerViewModel: ObservableObject {
     func stop() {
         player?.pause()
         player = nil
-        streamStatus = nil
         phase = .idle
-    }
-
-    private static func playbackURL(for torrent: TorrentItem) -> URL? {
-        let candidate = torrent.url.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !candidate.isEmpty else { return nil }
-        guard let url = URL(string: candidate), let scheme = url.scheme?.lowercased() else { return nil }
-        guard scheme == "http" || scheme == "https" else { return nil }
-        return url
     }
 }
 
