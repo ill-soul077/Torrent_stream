@@ -331,6 +331,13 @@ struct TorrentFilesResponse: Codable {
     let files: [TorrentFile]
 }
 
+struct MagnetStreamResponse: Codable {
+    let hash: String
+    let stream_path: String
+    let magnet: String?
+    let message: String
+}
+
 struct TorrentFile: Codable, Identifiable, Hashable {
     let index: Int
     let name: String

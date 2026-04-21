@@ -5,17 +5,13 @@ import AVKit
 final class PlayerViewModel: ObservableObject {
     enum Phase: Equatable {
         case idle
-        case preparing
-        case waitingForMetadata
-        case choosingFile
-        case ready
+        case loading
+        case playing
         case failed(String)
     }
 
     @Published var phase: Phase = .idle
-    @Published var statusText = "Preparing torrent…"
-    @Published var selectedFile: TorrentFile? = nil
-    @Published var availableFiles: [TorrentFile] = []
+    @Published var statusText = "Starting playback…"
     @Published var streamStatus: StreamStatus? = nil
     @Published var player: AVPlayer? = nil
 
@@ -27,13 +23,24 @@ final class PlayerViewModel: ObservableObject {
 
     func start(torrent: TorrentItem) async {
         stop()
-        phase = .preparing
-        statusText = "Sending magnet link to server…"
+        phase = .loading
+        statusText = "Preparing stream…"
 
         do {
-            _ = try await APIService.shared.startMagnetSession(magnet: torrent.magnet, hash: torrent.hash)
-            phase = .waitingForMetadata
-            statusText = "Fetching torrent metadata…"
+            // Get streaming URL directly from magnet link
+            guard let streamURL = try await APIService.shared.getStreamURL(magnet: torrent.magnet, hash: torrent.hash) else {
+                phase = .failed("Could not create stream URL")
+                return
+            }
+
+            // Create player with the stream URL immediately
+            let player = AVPlayer(url: streamURL)
+            self.player = player
+            self.phase = .playing
+            self.statusText = "Streaming: \(torrent.name)"
+            player.play()
+
+            // Optional: start polling for progress info to show in UI
             beginPolling(hash: torrent.hash)
         } catch {
             phase = .failed(error.localizedDescription)
@@ -45,8 +52,6 @@ final class PlayerViewModel: ObservableObject {
         pollingTask = nil
         player?.pause()
         player = nil
-        availableFiles = []
-        selectedFile = nil
         streamStatus = nil
         phase = .idle
     }
@@ -60,38 +65,12 @@ final class PlayerViewModel: ObservableObject {
                 do {
                     let status = try await APIService.shared.streamStatus(hash: hash)
                     self.streamStatus = status
-
-                    if status.has_metadata {
-                        self.phase = .choosingFile
-                        self.statusText = "Looking for playable video file…"
-
-                        let files = try await APIService.shared.torrentFiles(hash: hash)
-                        self.availableFiles = files
-
-                        guard let bestFile = APIService.shared.bestPlayableVideo(from: files) else {
-                            self.phase = .failed("No playable video file found in torrent.")
-                            return
-                        }
-
-                        guard let url = APIService.shared.streamFileURL(hash: hash, fileIndex: bestFile.index) else {
-                            self.phase = .failed("Could not build file stream URL.")
-                            return
-                        }
-
-                        self.selectedFile = bestFile
-                        self.player = AVPlayer(url: url)
-                        self.phase = .ready
-                        self.statusText = "Streaming \(bestFile.displayName)"
-                        self.player?.play()
-                        return
-                    } else {
-                        let percent = Int(status.progress * 100)
-                        self.phase = .waitingForMetadata
-                        self.statusText = "Waiting for metadata… \(percent)% • peers \(status.num_peers)"
-                    }
+                    
+                    let percent = Int(status.progress * 100)
+                    self.statusText = "Buffering… \(percent)% • \(status.num_peers) peers"
                 } catch {
-                    self.phase = .failed(error.localizedDescription)
-                    return
+                    // Silent fail on polling - don't interrupt playback
+                    break
                 }
 
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
@@ -111,19 +90,39 @@ struct PlayerView: View {
                 Color.black.ignoresSafeArea()
 
                 switch vm.phase {
-                case .ready:
+                case .playing:
                     if let player = vm.player {
-                        VideoPlayer(player: player)
-                            .ignoresSafeArea(edges: .bottom)
+                        ZStack(alignment: .bottomCenter) {
+                            VideoPlayer(player: player)
+                                .ignoresSafeArea(edges: .bottom)
+                            
+                            // Show status info if available
+                            if let status = vm.streamStatus {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "waveform.circle.fill")
+                                        .foregroundColor(.green)
+                                    Text("\(status.num_peers) peers • \(Int(status.progress * 100))%")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.7))
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(.black.opacity(0.6))
+                            }
+                        }
                     } else {
-                        progressBody
+                        loadingBody
                     }
+
+                case .loading:
+                    loadingBody
 
                 case .failed(let message):
                     failureBody(message)
 
-                default:
-                    progressBody
+                case .idle:
+                    loadingBody
                 }
             }
             .navigationTitle(torrent.name)
@@ -146,46 +145,21 @@ struct PlayerView: View {
         }
     }
 
-    private var progressBody: some View {
+    private var loadingBody: some View {
         VStack(spacing: 18) {
             ProgressView().tint(.purple)
 
             Text(vm.statusText)
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
+                .font(.headline)
 
             if let status = vm.streamStatus {
                 VStack(alignment: .leading, spacing: 8) {
-                    statusRow("State", status.state)
                     statusRow("Peers", "\(status.num_peers)")
                     statusRow("Progress", "\(Int(status.progress * 100))%")
                     statusRow("Down", ByteCountFormatter.string(fromByteCount: Int64(status.download_rate), countStyle: .file) + "/s")
                     statusRow("Up", ByteCountFormatter.string(fromByteCount: Int64(status.upload_rate), countStyle: .file) + "/s")
-                }
-                .padding()
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(12)
-            }
-
-            if !vm.availableFiles.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Detected files")
-                        .font(.headline)
-                        .foregroundColor(.white)
-
-                    ForEach(vm.availableFiles.prefix(8)) { file in
-                        HStack {
-                            Image(systemName: file.isPlayableVideo ? "film.fill" : "doc.fill")
-                                .foregroundColor(file.isPlayableVideo ? .green : .gray)
-                            Text(file.displayName)
-                                .foregroundColor(.white.opacity(0.85))
-                                .lineLimit(1)
-                            Spacer()
-                            Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
-                                .foregroundColor(.gray)
-                                .font(.caption)
-                        }
-                    }
                 }
                 .padding()
                 .background(Color.white.opacity(0.06))

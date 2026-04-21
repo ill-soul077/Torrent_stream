@@ -219,6 +219,23 @@ final class APIService {
         try await performEmpty(req)
     }
 
+    // ─── Streaming (new streamlined flow) ───────────────────────────────
+
+    func getStreamURL(magnet: String, hash: String) async throws -> URL? {
+        // New streamlined flow: get stream URL directly from magnet link.
+        // Usage: Call this to start torrent and get a URL for AVPlayer immediately.
+        // AVPlayer will buffer while the torrent metadata loads.
+        let path = "/stream/magnet/\(hash.urlEncoded)?magnet=\(magnet.urlEncoded)"
+        let req = try request(path)
+        let response: MagnetStreamResponse = try await perform(req)
+        
+        // Construct full URL from the stream path
+        guard let fullURL = URL(string: APIConfig.baseURL + response.stream_path) else {
+            return nil
+        }
+        return fullURL
+    }
+
     @discardableResult
     func startMagnetSession(magnet: String, hash: String) async throws -> StreamStartResponse {
         var req = try request("/stream/start", method: "POST")
