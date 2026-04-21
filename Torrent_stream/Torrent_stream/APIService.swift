@@ -232,6 +232,52 @@ final class APIService {
         try await performEmpty(req)
     }
 
+    // ─── Community ──────────────────────────────────────────────────────
+
+    func getCommunityPosts() async throws -> [CommunityPost] {
+        let req = try request("/community/posts")
+        return try await perform(req)
+    }
+
+    func getCommunityPost(_ id: String) async throws -> CommunityPostDetail {
+        let req = try request("/community/posts/\(id.urlEncoded)")
+        return try await perform(req)
+    }
+
+    func getCommunityComments(postId: String) async throws -> [CommunityComment] {
+        let req = try request("/community/posts/\(postId.urlEncoded)/comments")
+        return try await perform(req)
+    }
+
+    func createCommunityPost(caption: String, torrent: TorrentItem) async throws -> CommunityPost {
+        let body = CommunityPostCreateRequest(
+            caption: caption,
+            torrent: torrent.toPayload()
+        )
+        let req = try request("/community/posts", method: "POST", body: body)
+        return try await perform(req)
+    }
+
+    func addCommunityComment(postId: String, content: String) async throws -> CommunityComment {
+        let body = CommunityCommentCreateRequest(content: content)
+        let req = try request(
+            "/community/posts/\(postId.urlEncoded)/comments",
+            method: "POST",
+            body: body
+        )
+        return try await perform(req)
+    }
+
+    func voteCommunityPost(postId: String, value: Int) async throws -> CommunityVoteState {
+        let body = CommunityVoteRequest(value: value)
+        let req = try request(
+            "/community/posts/\(postId.urlEncoded)/vote",
+            method: "PUT",
+            body: body
+        )
+        return try await perform(req)
+    }
+
     // ─── Streaming (new streamlined flow) ───────────────────────────────
 
     func streamSocketURL(hash: String) throws -> URL {

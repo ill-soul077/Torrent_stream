@@ -57,7 +57,7 @@ final class CommunityPostDetailViewModel: ObservableObject {
             let state = try await APIService.shared.voteCommunityPost(postId: postID, value: requestedValue)
             applyVoteState(state)
         } catch {
-            error = error.localizedDescription
+            self.error = error.localizedDescription
         }
     }
 
@@ -78,7 +78,7 @@ final class CommunityPostDetailViewModel: ObservableObject {
                 post = currentPost
             }
         } catch {
-            error = error.localizedDescription
+            self.error = error.localizedDescription
         }
     }
 
@@ -551,7 +551,7 @@ struct CommunityTag: View {
     }
 }
 
-private protocol CommunityPostPresentable {
+protocol CommunityPostPresentable {
     var authorHandle: String { get }
     var created_at: String { get }
     var user_vote: Int { get }
