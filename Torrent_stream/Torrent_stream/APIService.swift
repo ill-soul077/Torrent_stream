@@ -451,7 +451,7 @@ final class APIService {
     private func authorizedPlaybackURL(absoluteURLString: String?, path: String?) throws -> URL? {
         let baseValue: String?
         if let absoluteURLString, !absoluteURLString.isEmpty {
-            baseValue = absoluteURLString
+            baseValue = normalizedPlaybackURLString(absoluteURLString)
         } else if let path, !path.isEmpty {
             baseValue = APIConfig.baseURL + path
         } else {
@@ -475,6 +475,16 @@ final class APIService {
             throw APIError.invalidURL
         }
         return url
+    }
+
+    private func normalizedPlaybackURLString(_ value: String) -> String {
+        if value.hasPrefix("wss://") {
+            return "https://" + value.dropFirst(6)
+        }
+        if value.hasPrefix("ws://") {
+            return "http://" + value.dropFirst(5)
+        }
+        return value
     }
 }
 
