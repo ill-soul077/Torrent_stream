@@ -23,6 +23,8 @@ final class PlayerViewModel: ObservableObject {
     private var streamTask: Task<Void, Never>?
     private var streamSocket: URLSessionWebSocketTask?
     private var playerItemObservation: NSKeyValueObservation?
+    private var playerFailureObserver: NSObjectProtocol?
+    private var playerStallObserver: NSObjectProtocol?
     private var pendingFallbackURL: URL?
     private var pendingFallbackMode: String?
     private var currentPlaybackURL: URL?
@@ -49,6 +51,7 @@ final class PlayerViewModel: ObservableObject {
         streamSocket?.cancel(with: .goingAway, reason: nil)
         streamSocket = nil
         playerItemObservation = nil
+        removePlayerObservers()
         player?.pause()
         player = nil
         pendingFallbackURL = nil
@@ -131,6 +134,8 @@ final class PlayerViewModel: ObservableObject {
                 selectedVideoName = event.selected_media?.name ?? event.selected_video?.name
             }
             subtitleTracks = event.subtitle_tracks ?? subtitleTracks
+            streamSocket?.cancel(with: .normalClosure, reason: nil)
+            streamSocket = nil
             startPlayback(
                 primaryURL: selection.primaryURL,
                 fallbackURL: selection.fallbackURL,
@@ -186,9 +191,12 @@ final class PlayerViewModel: ObservableObject {
         playbackModeLabel = (mode ?? currentPlaybackMode)?.uppercased()
 
         playerItemObservation = nil
-        let item = AVPlayerItem(url: primaryURL)
+        removePlayerObservers()
+        let asset = AVURLAsset(url: primaryURL)
+        let item = AVPlayerItem(asset: asset)
         item.preferredForwardBufferDuration = 5
         observePlayerItem(item)
+        observePlayerItemNotifications(item)
 
         let activePlayer = player ?? AVPlayer()
         activePlayer.replaceCurrentItem(with: item)
@@ -213,6 +221,38 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
+    private func observePlayerItemNotifications(_ item: AVPlayerItem) {
+        playerFailureObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self else { return }
+            let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+            self.handlePlaybackFailure(error?.localizedDescription ?? "Playback failed")
+        }
+
+        playerStallObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemPlaybackStalled,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.statusText = "Playback stalled. Waiting for more data…"
+        }
+    }
+
+    private func removePlayerObservers() {
+        if let playerFailureObserver {
+            NotificationCenter.default.removeObserver(playerFailureObserver)
+            self.playerFailureObserver = nil
+        }
+        if let playerStallObserver {
+            NotificationCenter.default.removeObserver(playerStallObserver)
+            self.playerStallObserver = nil
+        }
+    }
+
     private func handlePlayerItemStatus(_ item: AVPlayerItem) {
         guard item === player?.currentItem else {
             return
@@ -220,19 +260,8 @@ final class PlayerViewModel: ObservableObject {
 
         switch item.status {
         case .failed:
-            if let fallbackURL = pendingFallbackURL, fallbackURL != currentPlaybackURL {
-                let failedMode = playbackModeLabel ?? "primary"
-                let fallbackMode = pendingFallbackMode ?? inferredPlaybackMode(for: fallbackURL)
-                pendingFallbackURL = nil
-                pendingFallbackMode = nil
-                statusText = "Primary \(failedMode.lowercased()) stream failed. Switching to \(fallbackMode.uppercased())…"
-                Task { @MainActor in
-                    self.startPlayback(primaryURL: fallbackURL, fallbackURL: nil, mode: fallbackMode, fallbackMode: nil)
-                }
-            } else {
-                let message = item.error?.localizedDescription ?? "Playback failed"
-                phase = .failed(message)
-            }
+            let message = item.error?.localizedDescription ?? "Playback failed"
+            handlePlaybackFailure(message)
 
         case .readyToPlay:
             if phase != .playing {
@@ -245,6 +274,22 @@ final class PlayerViewModel: ObservableObject {
         @unknown default:
             break
         }
+    }
+
+    private func handlePlaybackFailure(_ message: String) {
+        if let fallbackURL = pendingFallbackURL, fallbackURL != currentPlaybackURL {
+            let failedMode = playbackModeLabel ?? "primary"
+            let fallbackMode = pendingFallbackMode ?? inferredPlaybackMode(for: fallbackURL)
+            pendingFallbackURL = nil
+            pendingFallbackMode = nil
+            statusText = "Primary \(failedMode.lowercased()) stream failed. Switching to \(fallbackMode.uppercased())…"
+            Task { @MainActor in
+                self.startPlayback(primaryURL: fallbackURL, fallbackURL: nil, mode: fallbackMode, fallbackMode: nil)
+            }
+            return
+        }
+
+        phase = .failed(message)
     }
 
     private func fallbackToPreparedStream(torrent: TorrentItem, reason: String) async -> Bool {
