@@ -15,67 +15,40 @@ final class PlayerViewModel: ObservableObject {
     @Published var streamStatus: StreamStatus? = nil
     @Published var player: AVPlayer? = nil
 
-    private var pollingTask: Task<Void, Never>? = nil
-
-    deinit {
-        pollingTask?.cancel()
-    }
-
     func start(torrent: TorrentItem) async {
         stop()
         phase = .loading
-        statusText = "Preparing stream…"
+        statusText = "Preparing video…"
 
         do {
-            // Get streaming URL directly from magnet link
-            guard let streamURL = try await APIService.shared.getStreamURL(magnet: torrent.magnet, hash: torrent.hash) else {
-                phase = .failed("Could not create stream URL")
+            guard let playbackURL = Self.playbackURL(for: torrent) else {
+                phase = .failed("No playable video URL is available for this item.")
                 return
             }
 
-            // Create player with the stream URL immediately
-            let player = AVPlayer(url: streamURL)
+            let player = AVPlayer(url: playbackURL)
             self.player = player
             self.phase = .playing
             self.statusText = "Streaming: \(torrent.name)"
             player.play()
-
-            // Optional: start polling for progress info to show in UI
-            beginPolling(hash: torrent.hash)
         } catch {
             phase = .failed(error.localizedDescription)
         }
     }
 
     func stop() {
-        pollingTask?.cancel()
-        pollingTask = nil
         player?.pause()
         player = nil
         streamStatus = nil
         phase = .idle
     }
 
-    private func beginPolling(hash: String) {
-        pollingTask?.cancel()
-        pollingTask = Task { [weak self] in
-            guard let self else { return }
-
-            while !Task.isCancelled {
-                do {
-                    let status = try await APIService.shared.streamStatus(hash: hash)
-                    self.streamStatus = status
-                    
-                    let percent = Int(status.progress * 100)
-                    self.statusText = "Buffering… \(percent)% • \(status.num_peers) peers"
-                } catch {
-                    // Silent fail on polling - don't interrupt playback
-                    break
-                }
-
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-            }
-        }
+    private static func playbackURL(for torrent: TorrentItem) -> URL? {
+        let candidate = torrent.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !candidate.isEmpty else { return nil }
+        guard let url = URL(string: candidate), let scheme = url.scheme?.lowercased() else { return nil }
+        guard scheme == "http" || scheme == "https" else { return nil }
+        return url
     }
 }
 
@@ -92,25 +65,8 @@ struct PlayerView: View {
                 switch vm.phase {
                 case .playing:
                     if let player = vm.player {
-                        ZStack(alignment: .bottomCenter) {
-                            VideoPlayer(player: player)
-                                .ignoresSafeArea(edges: .bottom)
-                            
-                            // Show status info if available
-                            if let status = vm.streamStatus {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "waveform.circle.fill")
-                                        .foregroundColor(.green)
-                                    Text("\(status.num_peers) peers • \(Int(status.progress * 100))%")
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.7))
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(.black.opacity(0.6))
-                            }
-                        }
+                        VideoPlayer(player: player)
+                            .ignoresSafeArea(edges: .bottom)
                     } else {
                         loadingBody
                     }
@@ -153,18 +109,6 @@ struct PlayerView: View {
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
                 .font(.headline)
-
-            if let status = vm.streamStatus {
-                VStack(alignment: .leading, spacing: 8) {
-                    statusRow("Peers", "\(status.num_peers)")
-                    statusRow("Progress", "\(Int(status.progress * 100))%")
-                    statusRow("Down", ByteCountFormatter.string(fromByteCount: Int64(status.download_rate), countStyle: .file) + "/s")
-                    statusRow("Up", ByteCountFormatter.string(fromByteCount: Int64(status.upload_rate), countStyle: .file) + "/s")
-                }
-                .padding()
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(12)
-            }
         }
         .padding()
     }
@@ -186,14 +130,4 @@ struct PlayerView: View {
         .padding()
     }
 
-    private func statusRow(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label)
-                .foregroundColor(.gray)
-            Spacer()
-            Text(value)
-                .foregroundColor(.white)
-        }
-        .font(.caption)
-    }
 }

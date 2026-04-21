@@ -7,6 +7,12 @@ struct TorrentDetailView: View {
     @State private var showAddToPlaylist = false
     @State private var toast: String? = nil
 
+    private var canPlayDirectly: Bool {
+        guard let url = URL(string: torrent.url.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+
     var body: some View {
         NavigationView {
             ZStack(alignment: .bottom) {
@@ -80,7 +86,13 @@ struct TorrentDetailView: View {
                 VStack(spacing: 0) {
                     Divider().background(Color.white.opacity(0.1))
                     HStack(spacing: 12) {
-                        Button(action: { showPlayer = true }) {
+                        Button(action: {
+                            if canPlayDirectly {
+                                showPlayer = true
+                            } else {
+                                showToast("No direct video URL is available for this item.")
+                            }
+                        }) {
                             Label("Play", systemImage: "play.fill")
                                 .font(.headline)
                                 .foregroundColor(.white)
@@ -89,6 +101,7 @@ struct TorrentDetailView: View {
                                 .background(LinearGradient(colors: [.purple, .blue], startPoint: .leading, endPoint: .trailing))
                                 .cornerRadius(12)
                         }
+                        .opacity(canPlayDirectly ? 1 : 0.45)
 
                         listButton("eye.fill", "Watch") { addTo("watchlist") }
                         listButton("heart.fill", "Wish") { addTo("wishlist") }
