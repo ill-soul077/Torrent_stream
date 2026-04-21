@@ -229,7 +229,8 @@ final class APIService {
     func prepareStream(magnet: String, hash: String) async throws -> PreparedStream? {
         // Server does heavy prep: metadata, best video selection, subtitle scan.
         let path = "/stream/magnet/\(hash.urlEncoded)?magnet=\(magnet.urlEncoded)"
-        let req = try request(path)
+        var req = try request(path)
+        req.timeoutInterval = 180
         let response: MagnetStreamResponse = try await perform(req)
 
         guard let tok = token else { throw APIError.noToken }

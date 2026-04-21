@@ -332,6 +332,8 @@ struct TorrentFilesResponse: Codable {
 }
 
 struct MagnetStreamResponse: Codable {
+    let status: String?
+    let prepared: Bool?
     let hash: String
     let stream_path: String
     let stream_url: String?

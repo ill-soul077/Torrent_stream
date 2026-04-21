@@ -30,7 +30,12 @@ final class PlayerViewModel: ObservableObject {
             selectedVideoName = prepared.payload.selected_video?.name
             subtitleTracks = prepared.payload.subtitle_tracks ?? []
 
+            if prepared.payload.prepared == false {
+                statusText = "Server is still loading torrent metadata… starting playback when ready"
+            }
+
             let player = AVPlayer(url: prepared.url)
+            player.automaticallyWaitsToMinimizeStalling = true
             self.player = player
             self.phase = .playing
             if subtitleTracks.isEmpty {
@@ -39,6 +44,10 @@ final class PlayerViewModel: ObservableObject {
                 self.statusText = "Streaming: \(torrent.name) • subtitles: \(subtitleTracks.count)"
             }
             player.play()
+        } catch let urlError as URLError where urlError.code == .timedOut {
+            phase = .failed("Prepare request timed out. Server is still fetching metadata/peers. Try again in a few seconds.")
+        } catch let apiError as APIError {
+            phase = .failed(apiError.localizedDescription)
         } catch {
             phase = .failed(error.localizedDescription)
         }
