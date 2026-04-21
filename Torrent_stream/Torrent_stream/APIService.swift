@@ -226,7 +226,7 @@ final class APIService {
 
     // ─── Streaming (new streamlined flow) ───────────────────────────────
 
-    func streamSocketURL(magnet: String, hash: String) throws -> URL {
+    func streamSocketURL(hash: String) throws -> URL {
         guard let tok = token else { throw APIError.noToken }
 
         let wsBase: String
@@ -238,15 +238,40 @@ final class APIService {
             throw APIError.invalidURL
         }
 
-        let urlString = "\(wsBase)/stream/ws/\(hash.urlEncoded)?magnet=\(magnet.urlEncoded)&token=\(tok.urlEncoded)"
+        let urlString = "\(wsBase)/stream/ws?hash=\(hash.urlEncoded)&token=\(tok.urlEncoded)"
         guard let url = URL(string: urlString) else { throw APIError.invalidURL }
         return url
     }
 
-    func openStreamSocket(magnet: String, hash: String) throws -> URLSessionWebSocketTask {
-        let task = URLSession.shared.webSocketTask(with: try streamSocketURL(magnet: magnet, hash: hash))
+    func openStreamSocket(hash: String) throws -> URLSessionWebSocketTask {
+        let task = URLSession.shared.webSocketTask(with: try streamSocketURL(hash: hash))
         task.resume()
         return task
+    }
+
+    func sendStreamSocketInit(
+        socket: URLSessionWebSocketTask,
+        magnet: String,
+        hash: String
+    ) async throws {
+        let payload: [String: String] = [
+            "magnet": magnet,
+            "hash": hash,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw APIError.invalidURL
+        }
+
+        try await withCheckedThrowingContinuation { continuation in
+            socket.send(.string(text)) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
     }
 
     func prepareStream(magnet: String, hash: String) async throws -> PreparedStream? {
