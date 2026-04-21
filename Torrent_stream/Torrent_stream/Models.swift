@@ -361,6 +361,22 @@ struct StreamSubtitleTrack: Codable, Identifiable {
     var id: Int { index }
 }
 
+struct StreamSocketEvent: Codable {
+    let type: String
+    let message: String?
+    let hash: String?
+    let progress: Double?
+    let download_rate: Int?
+    let upload_rate: Int?
+    let num_peers: Int?
+    let state: String?
+    let has_metadata: Bool?
+    let stream_url: String?
+    let selected_video: StreamSelectedVideo?
+    let subtitles_available: Bool?
+    let subtitle_tracks: [StreamSubtitleTrack]?
+}
+
 struct TorrentFile: Codable, Identifiable, Hashable {
     let index: Int
     let name: String

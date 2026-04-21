@@ -226,6 +226,29 @@ final class APIService {
 
     // ─── Streaming (new streamlined flow) ───────────────────────────────
 
+    func streamSocketURL(magnet: String, hash: String) throws -> URL {
+        guard let tok = token else { throw APIError.noToken }
+
+        let wsBase: String
+        if APIConfig.baseURL.hasPrefix("https://") {
+            wsBase = APIConfig.baseURL.replacingOccurrences(of: "https://", with: "wss://")
+        } else if APIConfig.baseURL.hasPrefix("http://") {
+            wsBase = APIConfig.baseURL.replacingOccurrences(of: "http://", with: "ws://")
+        } else {
+            throw APIError.invalidURL
+        }
+
+        let urlString = "\(wsBase)/stream/ws/\(hash.urlEncoded)?magnet=\(magnet.urlEncoded)&token=\(tok.urlEncoded)"
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
+        return url
+    }
+
+    func openStreamSocket(magnet: String, hash: String) throws -> URLSessionWebSocketTask {
+        let task = URLSession.shared.webSocketTask(with: try streamSocketURL(magnet: magnet, hash: hash))
+        task.resume()
+        return task
+    }
+
     func prepareStream(magnet: String, hash: String) async throws -> PreparedStream? {
         // Server does heavy prep: metadata, best video selection, subtitle scan.
         let path = "/stream/magnet/\(hash.urlEncoded)?magnet=\(magnet.urlEncoded)"

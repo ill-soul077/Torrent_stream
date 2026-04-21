@@ -12,40 +12,29 @@ final class PlayerViewModel: ObservableObject {
 
     @Published var phase: Phase = .idle
     @Published var statusText = "Starting playback…"
+    @Published var progressPercent: Int = 0
+    @Published var peerCount: Int = 0
+    @Published var downloadRate: Int = 0
     @Published var selectedVideoName: String? = nil
     @Published var subtitleTracks: [StreamSubtitleTrack] = []
     @Published var player: AVPlayer? = nil
 
+    private var socketTask: URLSessionWebSocketTask? = nil
+    private var socketListenTask: Task<Void, Never>? = nil
+
     func start(torrent: TorrentItem) async {
         stop()
         phase = .loading
-        statusText = "Preparing stream on server…"
+        statusText = "Connecting to torrent session…"
 
         do {
-            guard let prepared = try await APIService.shared.prepareStream(magnet: torrent.magnet, hash: torrent.hash) else {
-                phase = .failed("Could not prepare stream from backend response.")
-                return
-            }
+            let socket = try APIService.shared.openStreamSocket(magnet: torrent.magnet, hash: torrent.hash)
+            socketTask = socket
+            statusText = "Fetching nodes and metadata…"
 
-            selectedVideoName = prepared.payload.selected_video?.name
-            subtitleTracks = prepared.payload.subtitle_tracks ?? []
-
-            if prepared.payload.prepared == false {
-                statusText = "Server is still loading torrent metadata… starting playback when ready"
+            socketListenTask = Task { [weak self] in
+                await self?.listenToSocket(socket, torrentName: torrent.name)
             }
-
-            let player = AVPlayer(url: prepared.url)
-            player.automaticallyWaitsToMinimizeStalling = true
-            self.player = player
-            self.phase = .playing
-            if subtitleTracks.isEmpty {
-                self.statusText = "Streaming: \(torrent.name) • no subtitles found"
-            } else {
-                self.statusText = "Streaming: \(torrent.name) • subtitles: \(subtitleTracks.count)"
-            }
-            player.play()
-        } catch let urlError as URLError where urlError.code == .timedOut {
-            phase = .failed("Prepare request timed out. Server is still fetching metadata/peers. Try again in a few seconds.")
         } catch let apiError as APIError {
             phase = .failed(apiError.localizedDescription)
         } catch {
@@ -54,11 +43,97 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func stop() {
+        socketListenTask?.cancel()
+        socketListenTask = nil
+        socketTask?.cancel(with: .goingAway, reason: nil)
+        socketTask = nil
+
         player?.pause()
         player = nil
+        progressPercent = 0
+        peerCount = 0
+        downloadRate = 0
         selectedVideoName = nil
         subtitleTracks = []
         phase = .idle
+    }
+
+    private func listenToSocket(_ socket: URLSessionWebSocketTask, torrentName: String) async {
+        while !Task.isCancelled {
+            do {
+                let message = try await socket.receive()
+                let data: Data
+                switch message {
+                case .string(let text):
+                    data = Data(text.utf8)
+                case .data(let raw):
+                    data = raw
+                @unknown default:
+                    continue
+                }
+
+                let event = try JSONDecoder().decode(StreamSocketEvent.self, from: data)
+                handleSocketEvent(event, socket: socket, torrentName: torrentName)
+            } catch {
+                if Task.isCancelled {
+                    return
+                }
+
+                phase = .failed("Stream socket disconnected: \(error.localizedDescription)")
+                return
+            }
+        }
+    }
+
+    private func handleSocketEvent(_ event: StreamSocketEvent, socket: URLSessionWebSocketTask, torrentName: String) {
+        switch event.type {
+        case "started":
+            statusText = event.message ?? "Torrent session started."
+
+        case "status":
+            let progress = max(0.0, min(1.0, event.progress ?? 0.0))
+            progressPercent = Int(progress * 100)
+            peerCount = max(0, event.num_peers ?? 0)
+            downloadRate = max(0, event.download_rate ?? 0)
+
+            if event.has_metadata == true {
+                statusText = "Metadata fetched. Preparing stream…"
+            } else {
+                statusText = "Fetching nodes… \(progressPercent)% • peers \(peerCount)"
+            }
+
+        case "ready":
+            guard let streamURLString = event.stream_url, let streamURL = URL(string: streamURLString) else {
+                phase = .failed("Ready event missing valid stream URL")
+                return
+            }
+
+            selectedVideoName = event.selected_video?.name
+            subtitleTracks = event.subtitle_tracks ?? []
+
+            let player = AVPlayer(url: streamURL)
+            player.automaticallyWaitsToMinimizeStalling = true
+            self.player = player
+            self.phase = .playing
+
+            if subtitleTracks.isEmpty {
+                statusText = "Streaming: \(torrentName) • no subtitles found"
+            } else {
+                statusText = "Streaming: \(torrentName) • subtitles: \(subtitleTracks.count)"
+            }
+
+            player.play()
+            socket.cancel(with: .normalClosure, reason: nil)
+            socketTask = nil
+
+        case "error":
+            phase = .failed(event.message ?? "Stream preparation failed")
+
+        default:
+            if let message = event.message, !message.isEmpty {
+                statusText = message
+            }
+        }
     }
 }
 
@@ -139,6 +214,16 @@ struct PlayerView: View {
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
                 .font(.headline)
+
+            if vm.phase == .loading {
+                VStack(spacing: 6) {
+                    Text("Progress: \(vm.progressPercent)%")
+                    Text("Peers: \(vm.peerCount)")
+                    Text("Download: \(ByteCountFormatter.string(fromByteCount: Int64(vm.downloadRate), countStyle: .file))/s")
+                }
+                .font(.caption)
+                .foregroundColor(.gray)
+            }
         }
         .padding()
     }
