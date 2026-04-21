@@ -231,9 +231,9 @@ final class APIService {
 
         let wsBase: String
         if APIConfig.baseURL.hasPrefix("https://") {
-            wsBase = APIConfig.baseURL.replacingOccurrences(of: "https://", with: "ws://")
+            wsBase = APIConfig.baseURL.replacingOccurrences(of: "https://", with: "wss://")
         } else if APIConfig.baseURL.hasPrefix("http://") {
-            wsBase = APIConfig.baseURL.replacingOccurrences(of: "http://", with: "ws://")
+            wsBase = APIConfig.baseURL.replacingOccurrences(of: "http://", with: "wss://")
         } else {
             throw APIError.invalidURL
         }
