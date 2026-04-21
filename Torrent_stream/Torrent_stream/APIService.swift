@@ -66,7 +66,6 @@ final class APIService {
     private func request(
         _ path: String,
         method: String = "GET",
-        body: Encodable? = nil,
         auth: Bool = true
     ) throws -> URLRequest {
         var req = URLRequest(url: try url(path))
@@ -76,9 +75,17 @@ final class APIService {
             guard let tok = token else { throw APIError.noToken }
             req.setValue("Bearer \(tok)", forHTTPHeaderField: "Authorization")
         }
-        if let body = body {
-            req.httpBody = try JSONEncoder().encode(AnyEncodable(body))
-        }
+        return req
+    }
+
+    private func request<Body: Encodable>(
+        _ path: String,
+        method: String = "GET",
+        body: Body,
+        auth: Bool = true
+    ) throws -> URLRequest {
+        var req = try request(path, method: method, auth: auth)
+        req.httpBody = try JSONEncoder().encode(body)
         return req
     }
 
@@ -337,18 +344,6 @@ final class APIService {
                 return lhs.size > rhs.size
             }
             .first
-    }
-}
-
-private struct AnyEncodable: Encodable {
-    private let encodeFunc: (Encoder) throws -> Void
-
-    init(_ wrapped: Encodable) {
-        self.encodeFunc = wrapped.encode
-    }
-
-    func encode(to encoder: Encoder) throws {
-        try encodeFunc(encoder)
     }
 }
 
