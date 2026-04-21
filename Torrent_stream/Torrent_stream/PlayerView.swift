@@ -12,23 +12,32 @@ final class PlayerViewModel: ObservableObject {
 
     @Published var phase: Phase = .idle
     @Published var statusText = "Starting playback…"
+    @Published var selectedVideoName: String? = nil
+    @Published var subtitleTracks: [StreamSubtitleTrack] = []
     @Published var player: AVPlayer? = nil
 
     func start(torrent: TorrentItem) async {
         stop()
         phase = .loading
-        statusText = "Starting torrent session…"
+        statusText = "Preparing stream on server…"
 
         do {
-            guard let streamURL = try await APIService.shared.getStreamURL(magnet: torrent.magnet, hash: torrent.hash) else {
-                phase = .failed("Could not build stream URL from backend response.")
+            guard let prepared = try await APIService.shared.prepareStream(magnet: torrent.magnet, hash: torrent.hash) else {
+                phase = .failed("Could not prepare stream from backend response.")
                 return
             }
 
-            let player = AVPlayer(url: streamURL)
+            selectedVideoName = prepared.payload.selected_video?.name
+            subtitleTracks = prepared.payload.subtitle_tracks ?? []
+
+            let player = AVPlayer(url: prepared.url)
             self.player = player
             self.phase = .playing
-            self.statusText = "Streaming: \(torrent.name)"
+            if subtitleTracks.isEmpty {
+                self.statusText = "Streaming: \(torrent.name) • no subtitles found"
+            } else {
+                self.statusText = "Streaming: \(torrent.name) • subtitles: \(subtitleTracks.count)"
+            }
             player.play()
         } catch {
             phase = .failed(error.localizedDescription)
@@ -38,6 +47,8 @@ final class PlayerViewModel: ObservableObject {
     func stop() {
         player?.pause()
         player = nil
+        selectedVideoName = nil
+        subtitleTracks = []
         phase = .idle
     }
 }
@@ -55,8 +66,28 @@ struct PlayerView: View {
                 switch vm.phase {
                 case .playing:
                     if let player = vm.player {
-                        VideoPlayer(player: player)
-                            .ignoresSafeArea(edges: .bottom)
+                        ZStack(alignment: .bottom) {
+                            VideoPlayer(player: player)
+                                .ignoresSafeArea(edges: .bottom)
+
+                            if vm.selectedVideoName != nil || !vm.subtitleTracks.isEmpty {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    if let selected = vm.selectedVideoName {
+                                        Text("Video: \(selected)")
+                                            .lineLimit(1)
+                                    }
+                                    Text(vm.subtitleTracks.isEmpty ? "Subtitles: none" : "Subtitles: \(vm.subtitleTracks.count)")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.black.opacity(0.65))
+                                .cornerRadius(10)
+                                .padding(.bottom, 14)
+                                .padding(.horizontal, 12)
+                            }
+                        }
                     } else {
                         loadingBody
                     }

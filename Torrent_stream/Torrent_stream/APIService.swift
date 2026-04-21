@@ -46,6 +46,11 @@ final class APIService {
     static let shared = APIService()
     private init() {}
 
+    struct PreparedStream {
+        let url: URL
+        let payload: MagnetStreamResponse
+    }
+
     var token: String? {
         get { UserDefaults.standard.string(forKey: "authToken") }
         set { UserDefaults.standard.set(newValue, forKey: "authToken") }
@@ -221,8 +226,8 @@ final class APIService {
 
     // ─── Streaming (new streamlined flow) ───────────────────────────────
 
-    func getStreamURL(magnet: String, hash: String) async throws -> URL? {
-        // Start torrent backend session and return AVPlayer-compatible stream URL.
+    func prepareStream(magnet: String, hash: String) async throws -> PreparedStream? {
+        // Server does heavy prep: metadata, best video selection, subtitle scan.
         let path = "/stream/magnet/\(hash.urlEncoded)?magnet=\(magnet.urlEncoded)"
         let req = try request(path)
         let response: MagnetStreamResponse = try await perform(req)
@@ -240,7 +245,12 @@ final class APIService {
         var queryItems = components.queryItems ?? []
         queryItems.append(URLQueryItem(name: "token", value: tok))
         components.queryItems = queryItems
-        return components.url
+        guard let url = components.url else { return nil }
+        return PreparedStream(url: url, payload: response)
+    }
+
+    func getStreamURL(magnet: String, hash: String) async throws -> URL? {
+        try await prepareStream(magnet: magnet, hash: hash)?.url
     }
 
     @discardableResult

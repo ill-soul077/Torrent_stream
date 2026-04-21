@@ -143,7 +143,7 @@ struct TorrentDetailView: View {
                 showToast("Error: \(error.localizedDescription)")
             }
         }
-    }fsew
+    }
 
     func showToast(_ message: String) {
         withAnimation { toast = message }
