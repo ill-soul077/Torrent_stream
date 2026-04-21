@@ -337,6 +337,7 @@ struct MagnetStreamResponse: Codable {
     let hash: String
     let stream_path: String
     let stream_url: String?
+    let content_type: String?
     let magnet: String?
     let selected_video: StreamSelectedVideo?
     let subtitles_available: Bool?
@@ -348,6 +349,7 @@ struct StreamSelectedVideo: Codable {
     let name: String
     let path: String
     let size: Int64
+    let content_type: String?
 }
 
 struct StreamSubtitleTrack: Codable, Identifiable {
@@ -372,6 +374,7 @@ struct StreamSocketEvent: Codable {
     let state: String?
     let has_metadata: Bool?
     let stream_url: String?
+    let content_type: String?
     let selected_video: StreamSelectedVideo?
     let subtitles_available: Bool?
     let subtitle_tracks: [StreamSubtitleTrack]?
