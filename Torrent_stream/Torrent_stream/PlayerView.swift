@@ -24,6 +24,7 @@ final class PlayerViewModel: ObservableObject {
     private var streamSocket: URLSessionWebSocketTask?
     private var playerItemObservation: NSKeyValueObservation?
     private var pendingFallbackURL: URL?
+    private var pendingFallbackMode: String?
     private var currentPlaybackURL: URL?
     private var currentPlaybackMode: String?
 
@@ -50,6 +51,7 @@ final class PlayerViewModel: ObservableObject {
         player?.pause()
         player = nil
         pendingFallbackURL = nil
+        pendingFallbackMode = nil
         currentPlaybackURL = nil
         currentPlaybackMode = nil
         progressPercent = 0
@@ -110,15 +112,15 @@ final class PlayerViewModel: ObservableObject {
 
         switch event.type {
         case "ready":
-            let urls: (primary: URL, fallback: URL?)?
+            let selection: APIService.PlaybackSelection?
             do {
-                urls = try APIService.shared.playbackURLs(for: event)
+                selection = try APIService.shared.playbackSelection(for: event)
             } catch {
                 phase = .failed(error.localizedDescription)
                 return
             }
 
-            guard let urls else {
+            guard let selection else {
                 phase = .failed("Stream is ready but no playable URL was returned")
                 return
             }
@@ -127,11 +129,11 @@ final class PlayerViewModel: ObservableObject {
                 selectedVideoName = event.selected_media?.name ?? event.selected_video?.name
             }
             subtitleTracks = event.subtitle_tracks ?? subtitleTracks
-            let fallback = urls.fallback == urls.primary ? nil : urls.fallback
             startPlayback(
-                primaryURL: urls.primary,
-                fallbackURL: fallback,
-                mode: event.playback_mode
+                primaryURL: selection.primaryURL,
+                fallbackURL: selection.fallbackURL,
+                mode: selection.primaryMode,
+                fallbackMode: selection.fallbackMode
             )
 
         case "error":
@@ -168,9 +170,10 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
-    private func startPlayback(primaryURL: URL, fallbackURL: URL?, mode: String?) {
+    private func startPlayback(primaryURL: URL, fallbackURL: URL?, mode: String?, fallbackMode: String?) {
         currentPlaybackURL = primaryURL
         pendingFallbackURL = fallbackURL
+        pendingFallbackMode = fallbackMode
         currentPlaybackMode = mode ?? currentPlaybackMode
         playbackModeLabel = (mode ?? currentPlaybackMode)?.uppercased()
 
@@ -206,9 +209,11 @@ final class PlayerViewModel: ObservableObject {
         case .failed:
             if let fallbackURL = pendingFallbackURL, fallbackURL != currentPlaybackURL {
                 let failedMode = playbackModeLabel ?? "primary"
+                let fallbackMode = pendingFallbackMode ?? inferredPlaybackMode(for: fallbackURL)
                 pendingFallbackURL = nil
-                statusText = "Primary \(failedMode.lowercased()) stream failed. Switching to direct stream…"
-                startPlayback(primaryURL: fallbackURL, fallbackURL: nil, mode: "direct")
+                pendingFallbackMode = nil
+                statusText = "Primary \(failedMode.lowercased()) stream failed. Switching to \(fallbackMode.uppercased())…"
+                startPlayback(primaryURL: fallbackURL, fallbackURL: nil, mode: fallbackMode, fallbackMode: nil)
             } else {
                 let message = item.error?.localizedDescription ?? "Playback failed"
                 phase = .failed(message)
@@ -242,23 +247,21 @@ final class PlayerViewModel: ObservableObject {
             selectedVideoName = prepared.payload.selected_media?.name ?? prepared.payload.selected_video?.name
             subtitleTracks = prepared.payload.subtitle_tracks ?? []
 
-            let mode: String
-            if prepared.payload.hls_url?.isEmpty == false || prepared.payload.hls_path?.isEmpty == false {
-                mode = "hls"
-            } else {
-                mode = "direct"
-            }
-
             startPlayback(
                 primaryURL: prepared.url,
                 fallbackURL: prepared.fallbackURL,
-                mode: mode
+                mode: prepared.playbackMode,
+                fallbackMode: prepared.fallbackMode
             )
             return true
         } catch {
             statusText = reason
             return false
         }
+    }
+
+    private func inferredPlaybackMode(for url: URL) -> String {
+        url.pathExtension.lowercased() == "m3u8" ? "hls" : "direct"
     }
 }
 

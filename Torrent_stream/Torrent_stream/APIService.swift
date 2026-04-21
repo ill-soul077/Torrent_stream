@@ -46,9 +46,18 @@ final class APIService {
     static let shared = APIService()
     private init() {}
 
+    struct PlaybackSelection {
+        let primaryURL: URL
+        let primaryMode: String
+        let fallbackURL: URL?
+        let fallbackMode: String?
+    }
+
     struct PreparedStream {
         let url: URL
+        let playbackMode: String
         let fallbackURL: URL?
+        let fallbackMode: String?
         let payload: MagnetStreamResponse
     }
 
@@ -354,37 +363,50 @@ final class APIService {
         req.timeoutInterval = 180
         let response: MagnetStreamResponse = try await perform(req)
 
-        guard let urls = try playbackURLs(
-            primaryAbsoluteURL: response.hls_url,
-            primaryPath: response.hls_path,
-            fallbackAbsoluteURL: response.stream_url,
-            fallbackPath: response.stream_path
-        ) else {
+        guard let selection = try playbackSelection(for: response) else {
             return nil
         }
 
-        return PreparedStream(url: urls.primary, fallbackURL: urls.fallback, payload: response)
+        return PreparedStream(
+            url: selection.primaryURL,
+            playbackMode: selection.primaryMode,
+            fallbackURL: selection.fallbackURL,
+            fallbackMode: selection.fallbackMode,
+            payload: response
+        )
     }
 
     func getStreamURL(magnet: String, hash: String) async throws -> URL? {
         try await prepareStream(magnet: magnet, hash: hash)?.url
     }
 
-    func playbackURLs(for event: StreamSocketEvent) throws -> (primary: URL, fallback: URL?)? {
-        try playbackURLs(
-            primaryAbsoluteURL: event.hls_url,
-            primaryPath: nil,
-            fallbackAbsoluteURL: event.stream_url,
-            fallbackPath: nil
+    func playbackSelection(for event: StreamSocketEvent) throws -> PlaybackSelection? {
+        let selected = event.selected_media ?? event.selected_video
+        return try playbackSelection(
+            preferredDirect: preferDirectPlayback(
+                mediaName: selected?.name,
+                contentType: selected?.content_type ?? event.content_type,
+                kind: selected?.kind
+            ),
+            hlsAbsoluteURL: event.hls_url,
+            hlsPath: nil,
+            directAbsoluteURL: event.stream_url,
+            directPath: nil
         )
     }
 
-    func playbackURLs(for response: MagnetStreamResponse) throws -> (primary: URL, fallback: URL?)? {
-        try playbackURLs(
-            primaryAbsoluteURL: response.hls_url,
-            primaryPath: response.hls_path,
-            fallbackAbsoluteURL: response.stream_url,
-            fallbackPath: response.stream_path
+    func playbackSelection(for response: MagnetStreamResponse) throws -> PlaybackSelection? {
+        let selected = response.selected_media ?? response.selected_video
+        return try playbackSelection(
+            preferredDirect: preferDirectPlayback(
+                mediaName: selected?.name,
+                contentType: selected?.content_type ?? response.content_type,
+                kind: selected?.kind
+            ),
+            hlsAbsoluteURL: response.hls_url,
+            hlsPath: response.hls_path,
+            directAbsoluteURL: response.stream_url,
+            directPath: response.stream_path
         )
     }
 
@@ -425,24 +447,43 @@ final class APIService {
             .first
     }
 
-    private func playbackURLs(
-        primaryAbsoluteURL: String?,
-        primaryPath: String?,
-        fallbackAbsoluteURL: String?,
-        fallbackPath: String?
-    ) throws -> (primary: URL, fallback: URL?)? {
-        let primary = try authorizedPlaybackURL(absoluteURLString: primaryAbsoluteURL, path: primaryPath)
-        let fallback = try authorizedPlaybackURL(absoluteURLString: fallbackAbsoluteURL, path: fallbackPath)
+    private func playbackSelection(
+        preferredDirect: Bool,
+        hlsAbsoluteURL: String?,
+        hlsPath: String?,
+        directAbsoluteURL: String?,
+        directPath: String?
+    ) throws -> PlaybackSelection? {
+        let hlsURL = try authorizedPlaybackURL(absoluteURLString: hlsAbsoluteURL, path: hlsPath)
+        let directURL = try authorizedPlaybackURL(absoluteURLString: directAbsoluteURL, path: directPath)
 
-        if let primary {
-            if let fallback, fallback != primary {
-                return (primary, fallback)
-            }
-            return (primary, nil)
+        if preferredDirect, let directURL {
+            let fallbackURL = hlsURL == directURL ? nil : hlsURL
+            return PlaybackSelection(
+                primaryURL: directURL,
+                primaryMode: "direct",
+                fallbackURL: fallbackURL,
+                fallbackMode: fallbackURL == nil ? nil : "hls"
+            )
         }
 
-        if let fallback {
-            return (fallback, nil)
+        if let hlsURL {
+            let fallbackURL = directURL == hlsURL ? nil : directURL
+            return PlaybackSelection(
+                primaryURL: hlsURL,
+                primaryMode: "hls",
+                fallbackURL: fallbackURL,
+                fallbackMode: fallbackURL == nil ? nil : "direct"
+            )
+        }
+
+        if let directURL {
+            return PlaybackSelection(
+                primaryURL: directURL,
+                primaryMode: "direct",
+                fallbackURL: nil,
+                fallbackMode: nil
+            )
         }
 
         return nil
@@ -485,6 +526,29 @@ final class APIService {
             return "http://" + value.dropFirst(5)
         }
         return value
+    }
+
+    private func preferDirectPlayback(mediaName: String?, contentType: String?, kind: String?) -> Bool {
+        if kind == "audio" {
+            return true
+        }
+
+        let normalizedType = (contentType ?? "").lowercased()
+        if normalizedType.hasPrefix("audio/") {
+            return true
+        }
+
+        let ext = mediaExtension(from: mediaName)
+        if ["mp4", "m4v", "mov", "mp3", "m4a", "aac", "wav", "aif", "aiff"].contains(ext) {
+            return true
+        }
+
+        return ["video/mp4", "video/quicktime", "audio/mpeg", "audio/mp4", "audio/aac", "audio/wav", "audio/x-aiff"].contains(normalizedType)
+    }
+
+    private func mediaExtension(from mediaName: String?) -> String {
+        guard let mediaName, !mediaName.isEmpty else { return "" }
+        return URL(fileURLWithPath: mediaName).pathExtension.lowercased()
     }
 }
 
