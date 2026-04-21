@@ -228,7 +228,12 @@ final class APIService {
         let response: MagnetStreamResponse = try await perform(req)
 
         guard let tok = token else { throw APIError.noToken }
-        guard var components = URLComponents(string: APIConfig.baseURL + response.stream_path) else {
+
+        let absoluteURLString = (response.stream_url?.isEmpty == false)
+            ? response.stream_url!
+            : (APIConfig.baseURL + response.stream_path)
+
+        guard var components = URLComponents(string: absoluteURLString) else {
             return nil
         }
 

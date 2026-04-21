@@ -334,8 +334,29 @@ struct TorrentFilesResponse: Codable {
 struct MagnetStreamResponse: Codable {
     let hash: String
     let stream_path: String
+    let stream_url: String?
     let magnet: String?
+    let selected_video: StreamSelectedVideo?
+    let subtitles_available: Bool?
+    let subtitle_tracks: [StreamSubtitleTrack]?
     let message: String
+}
+
+struct StreamSelectedVideo: Codable {
+    let name: String
+    let path: String
+    let size: Int64
+}
+
+struct StreamSubtitleTrack: Codable, Identifiable {
+    let index: Int
+    let name: String
+    let path: String
+    let size: Int64
+    let ext: String
+    let downloaded: Bool
+
+    var id: Int { index }
 }
 
 struct TorrentFile: Codable, Identifiable, Hashable {
