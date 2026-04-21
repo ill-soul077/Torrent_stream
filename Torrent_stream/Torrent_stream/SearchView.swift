@@ -52,6 +52,7 @@ final class SearchViewModel: ObservableObject {
 }
 
 struct SearchView: View {
+    @EnvironmentObject var auth: AuthViewModel
     @StateObject private var vm = SearchViewModel()
     @State private var selectedTorrent: TorrentItem? = nil
 
@@ -149,8 +150,8 @@ struct SearchView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: CommunityFeedView()) {
-                        Image(systemName: "person.3.fill")
+                    NavigationLink(destination: ProfileView().environmentObject(auth)) {
+                        Image(systemName: "person.crop.circle.fill")
                             .foregroundColor(.purple)
                     }
                 }

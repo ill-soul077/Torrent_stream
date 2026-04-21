@@ -18,15 +18,15 @@ struct MainTabView: View {
                 }
                 .tag(1)
 
-            WishlistView()
-                .tabItem {
-                    Label("Wishlist", systemImage: "heart.fill")
-                }
-                .tag(2)
-
             WatchLaterView()
                 .tabItem {
                     Label("Watch Later", systemImage: "clock.fill")
+                }
+                .tag(2)
+
+            CommunityFeedView()
+                .tabItem {
+                    Label("Community", systemImage: "person.3.fill")
                 }
                 .tag(3)
 
