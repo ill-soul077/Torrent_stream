@@ -23,6 +23,7 @@ final class PlayerViewModel: ObservableObject {
     private var streamTask: Task<Void, Never>?
     private var streamSocket: URLSessionWebSocketTask?
     private var playerItemObservation: NSKeyValueObservation?
+    private var playerTimeControlObservation: NSKeyValueObservation?
     private var playerFailureObserver: NSObjectProtocol?
     private var playerStallObserver: NSObjectProtocol?
     private var pendingFallbackURL: URL?
@@ -30,6 +31,7 @@ final class PlayerViewModel: ObservableObject {
     private var currentPlaybackURL: URL?
     private var currentPlaybackMode: String?
     private var isSwitchingPlayback = false
+    private var playbackStartupTask: Task<Void, Never>?
 
     func start(torrent: TorrentItem) {
         stop()
@@ -51,6 +53,9 @@ final class PlayerViewModel: ObservableObject {
         streamSocket?.cancel(with: .goingAway, reason: nil)
         streamSocket = nil
         playerItemObservation = nil
+        playerTimeControlObservation = nil
+        playbackStartupTask?.cancel()
+        playbackStartupTask = nil
         removePlayerObservers()
         player?.pause()
         player = nil
@@ -201,6 +206,7 @@ final class PlayerViewModel: ObservableObject {
         let activePlayer = player ?? AVPlayer()
         activePlayer.replaceCurrentItem(with: item)
         activePlayer.automaticallyWaitsToMinimizeStalling = true
+        observePlayerTimeControl(activePlayer)
         player = activePlayer
         phase = .playing
 
@@ -210,6 +216,7 @@ final class PlayerViewModel: ObservableObject {
         }
 
         activePlayer.play()
+        schedulePlaybackStartupCheck(for: primaryURL)
     }
 
     private func observePlayerItem(_ item: AVPlayerItem) {
@@ -217,6 +224,30 @@ final class PlayerViewModel: ObservableObject {
             guard let self else { return }
             Task { @MainActor in
                 self.handlePlayerItemStatus(observedItem)
+            }
+        }
+    }
+
+    private func observePlayerTimeControl(_ player: AVPlayer) {
+        if playerTimeControlObservation != nil {
+            return
+        }
+
+        playerTimeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] observedPlayer, _ in
+            guard let self else { return }
+            Task { @MainActor in
+                switch observedPlayer.timeControlStatus {
+                case .playing:
+                    self.statusText = "Playing \(self.selectedVideoName ?? "stream")"
+                case .waitingToPlayAtSpecifiedRate:
+                    if self.phase == .playing {
+                        self.statusText = "Buffering \(self.selectedVideoName ?? "stream")…"
+                    }
+                case .paused:
+                    break
+                @unknown default:
+                    break
+                }
             }
         }
     }
@@ -264,6 +295,8 @@ final class PlayerViewModel: ObservableObject {
             handlePlaybackFailure(message)
 
         case .readyToPlay:
+            playbackStartupTask?.cancel()
+            playbackStartupTask = nil
             if phase != .playing {
                 phase = .playing
             }
@@ -290,6 +323,32 @@ final class PlayerViewModel: ObservableObject {
         }
 
         phase = .failed(message)
+    }
+
+    private func schedulePlaybackStartupCheck(for url: URL) {
+        playbackStartupTask?.cancel()
+        playbackStartupTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            guard let self else { return }
+            await self.checkPlaybackStartup(for: url)
+        }
+    }
+
+    private func checkPlaybackStartup(for url: URL) async {
+        guard currentPlaybackURL == url else { return }
+        guard let player else { return }
+        guard let item = player.currentItem else { return }
+        if item.status == .readyToPlay && player.timeControlStatus == .playing {
+            return
+        }
+
+        let currentSeconds = player.currentTime().seconds
+        if currentSeconds.isFinite && currentSeconds > 0.5 {
+            return
+        }
+
+        let message = item.error?.localizedDescription ?? "Playback did not start"
+        handlePlaybackFailure(message)
     }
 
     private func fallbackToPreparedStream(torrent: TorrentItem, reason: String) async -> Bool {

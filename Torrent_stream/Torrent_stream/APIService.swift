@@ -537,13 +537,13 @@ final class APIService {
         if normalizedType.hasPrefix("audio/") {
             return true
         }
-
-        let ext = mediaExtension(from: mediaName)
-        if ["mp4", "m4v", "mov", "mp3", "m4a", "aac", "wav", "aif", "aiff"].contains(ext) {
-            return true
+        if kind == "video" || normalizedType.hasPrefix("video/") {
+            return false
         }
 
-        return ["video/mp4", "video/quicktime", "audio/mpeg", "audio/mp4", "audio/aac", "audio/wav", "audio/x-aiff"].contains(normalizedType)
+        let ext = mediaExtension(from: mediaName)
+        return ["mp3", "m4a", "aac", "wav", "aif", "aiff"].contains(ext)
+            || ["audio/mpeg", "audio/mp4", "audio/aac", "audio/wav", "audio/x-aiff"].contains(normalizedType)
     }
 
     private func mediaExtension(from mediaName: String?) -> String {
