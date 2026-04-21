@@ -24,6 +24,7 @@
 		22AB1001300000000041F37C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22AB1000300000000041F37C /* OnboardingView.swift */; };
 		229171EB2F858FE80041F37C /* PlaylistsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229171EA2F858FE80041F37C /* PlaylistsView.swift */; };
 		22F0C001300000000041F37C /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22F0C000300000000041F37C /* ProfileView.swift */; };
+		22F0C003300000000041F37C /* AppChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22F0C002300000000041F37C /* AppChrome.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +46,7 @@
 		22AB1000300000000041F37C /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		229171EA2F858FE80041F37C /* PlaylistsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistsView.swift; sourceTree = "<group>"; };
 		22F0C000300000000041F37C /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		22F0C002300000000041F37C /* AppChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppChrome.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,6 +90,7 @@
 				221D6A3F2F851CFF00498861 /* MainTabView.swift */,
 				221D6A412F851D1800498861 /* Models.swift */,
 				22AB1000300000000041F37C /* OnboardingView.swift */,
+				22F0C002300000000041F37C /* AppChrome.swift */,
 				221D6A432F851D6200498861 /* PlayerView.swift */,
 				22F0C000300000000041F37C /* ProfileView.swift */,
 				221D6A472F851DF300498861 /* SearchView.swift */,
@@ -190,6 +193,7 @@
 				22AB1001300000000041F37C /* OnboardingView.swift in Sources */,
 				221D6A282F851ABB00498861 /* Torrent_streamApp.swift in Sources */,
 				221D6A482F851DF300498861 /* SearchView.swift in Sources */,
+				22F0C003300000000041F37C /* AppChrome.swift in Sources */,
 				22F0C001300000000041F37C /* ProfileView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

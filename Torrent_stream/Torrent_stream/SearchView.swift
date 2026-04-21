@@ -15,6 +15,28 @@ final class SearchViewModel: ObservableObject {
 
     let categories = ["all", "movies", "tv", "4k", "music", "games", "apps", "audio", "video", "other"]
 
+    var modeSummary: String {
+        switch mode {
+        case .trending:
+            return "Trending is based on the server's most-used items."
+        case .recent:
+            return "Recent keeps your personal viewing and search history."
+        case .search:
+            return "Search results are filtered for blocked terms and sites."
+        }
+    }
+
+    var emptyStateText: String {
+        switch mode {
+        case .trending:
+            return "No trending items yet"
+        case .recent:
+            return "No recent history yet"
+        case .search:
+            return "No results"
+        }
+    }
+
     func load() async {
         isLoading = true
         error = nil
@@ -40,7 +62,12 @@ final class SearchViewModel: ObservableObject {
             }
             results = response.data
         } catch {
-            self.error = error.localizedDescription
+            let message = error.localizedDescription
+            if message.localizedCaseInsensitiveContains("blocked content") {
+                self.error = "That search is blocked by the server safety filter."
+            } else {
+                self.error = message
+            }
         }
     }
 
@@ -104,6 +131,13 @@ struct SearchView: View {
                     .padding(.horizontal)
                     .padding(.bottom, 8)
 
+                    Text(vm.modeSummary)
+                        .font(.caption)
+                        .foregroundColor(AppPalette.secondaryText(for: colorScheme))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+
                     if vm.isLoading {
                         Spacer()
                         ProgressView().tint(.purple)
@@ -122,7 +156,7 @@ struct SearchView: View {
                         Spacer()
                     } else if vm.results.isEmpty {
                         Spacer()
-                        Text("No results").foregroundColor(AppPalette.secondaryText(for: colorScheme))
+                        Text(vm.emptyStateText).foregroundColor(AppPalette.secondaryText(for: colorScheme))
                         Spacer()
                     } else {
                         ScrollView {
