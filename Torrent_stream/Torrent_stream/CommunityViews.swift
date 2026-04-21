@@ -3,6 +3,7 @@ import SwiftUI
 @MainActor
 final class CommunityFeedViewModel: ObservableObject {
     @Published var posts: [CommunityPost] = []
+    @Published var searchText = ""
     @Published var selectedTag: String? = nil
     @Published var isLoading = false
     @Published var error: String? = nil
@@ -11,13 +12,36 @@ final class CommunityFeedViewModel: ObservableObject {
         Array(Set(posts.flatMap { $0.tags })).sorted()
     }
 
+    var filteredPosts: [CommunityPost] {
+        let normalizedQuery = searchText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        return posts.filter { post in
+            let matchesTag = selectedTag == nil || post.tags.contains(selectedTag ?? "")
+            guard matchesTag else { return false }
+            guard !normalizedQuery.isEmpty else { return true }
+
+            let haystacks = [
+                post.author_email,
+                post.caption,
+                post.torrent.name,
+                post.torrent.category,
+                post.torrent.size,
+                post.tags.joined(separator: " ")
+            ]
+
+            return haystacks.contains { $0.lowercased().contains(normalizedQuery) }
+        }
+    }
+
     func load() async {
         isLoading = true
         error = nil
         defer { isLoading = false }
 
         do {
-            posts = try await APIService.shared.getCommunityPosts(tag: selectedTag)
+            posts = try await APIService.shared.getCommunityPosts()
         } catch {
             self.error = error.localizedDescription
         }
@@ -25,7 +49,24 @@ final class CommunityFeedViewModel: ObservableObject {
 
     func selectTag(_ tag: String?) async {
         selectedTag = tag
-        await load()
+    }
+
+    func vote(postID: String, value: Int) async {
+        guard let index = posts.firstIndex(where: { $0.id == postID }) else { return }
+
+        let currentVote = posts[index].user_vote
+        let requestedValue = currentVote == value ? 0 : value
+
+        do {
+            let state = try await APIService.shared.voteCommunityPost(postId: postID, value: requestedValue)
+            posts[index].score = state.score
+            posts[index].upvote_count = state.upvote_count
+            posts[index].downvote_count = state.downvote_count
+            posts[index].comment_count = state.comment_count
+            posts[index].user_vote = state.user_vote
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }
 
@@ -104,11 +145,12 @@ final class CommunityPostDetailViewModel: ObservableObject {
 }
 
 struct CommunityFeedView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var vm = CommunityFeedViewModel()
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            AppPalette.background(for: colorScheme).ignoresSafeArea()
 
             if vm.isLoading && vm.posts.isEmpty {
                 ProgressView().tint(.purple)
@@ -118,24 +160,53 @@ struct CommunityFeedView: View {
                     title: "Could not load Community",
                     message: error
                 )
-            } else if vm.posts.isEmpty {
-                CommunityMessageView(
-                    icon: "person.3.fill",
-                    title: "No posts yet",
-                    message: "Share a torrent from its detail page to start the conversation."
-                )
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        searchSection
+
                         if !vm.availableTags.isEmpty || vm.selectedTag != nil {
                             tagFilterSection
                         }
 
-                        ForEach(vm.posts) { post in
-                            NavigationLink(destination: CommunityPostDetailView(postID: post.id)) {
-                                CommunityPostCard(post: post)
+                        if let error = vm.error {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+
+                        if vm.posts.isEmpty {
+                            CommunityMessageView(
+                                icon: "person.3.fill",
+                                title: "No posts yet",
+                                message: "Share a torrent from its detail page to start the conversation."
+                            )
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 24)
+                        } else if vm.filteredPosts.isEmpty {
+                            CommunityMessageView(
+                                icon: "magnifyingglass",
+                                title: "No matching posts",
+                                message: "Try a different search term or tag."
+                            )
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 24)
+                        } else {
+                            ForEach(vm.filteredPosts) { post in
+                                VStack(alignment: .leading, spacing: 10) {
+                                    NavigationLink(destination: CommunityPostDetailView(postID: post.id)) {
+                                        CommunityPostCard(
+                                            post: post,
+                                            onTagTap: { tag in
+                                                Task { await vm.selectTag(tag) }
+                                            }
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    feedActionBar(post: post)
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                     .padding()
@@ -145,10 +216,103 @@ struct CommunityFeedView: View {
                 }
             }
         }
-        .navigationTitle("Community")
-        .navigationBarTitleDisplayMode(.inline)
+        .appHeader("TorrentStream")
         .task {
             await vm.load()
+        }
+    }
+
+    private func feedActionBar(post: CommunityPost) -> some View {
+        HStack(spacing: 10) {
+            feedActionButton(
+                title: "\(post.upvote_count)",
+                systemImage: "hand.thumbsup.fill",
+                isActive: post.user_vote == 1,
+                color: .green
+            ) {
+                Task { await vm.vote(postID: post.id, value: 1) }
+            }
+
+            feedActionButton(
+                title: "\(post.downvote_count)",
+                systemImage: "hand.thumbsdown.fill",
+                isActive: post.user_vote == -1,
+                color: .red
+            ) {
+                Task { await vm.vote(postID: post.id, value: -1) }
+            }
+
+            NavigationLink(destination: CommunityPostDetailView(postID: post.id)) {
+                HStack(spacing: 6) {
+                    Image(systemName: "text.bubble.fill")
+                    Text("\(post.comment_count)")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.orange)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.14))
+                .cornerRadius(999)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Text("Score \(post.score)")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.white.opacity(0.8))
+        }
+    }
+
+    private func feedActionButton(
+        title: String,
+        systemImage: String,
+        isActive: Bool,
+        color: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                Text(title)
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundColor(isActive ? .white : color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(isActive ? color : color.opacity(0.14))
+            .cornerRadius(999)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var searchSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+                Text("Search Community")
+                    .font(.headline)
+                    .foregroundColor(AppPalette.primaryText(for: colorScheme))
+
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+
+                TextField("Search posts, captions, tags, or authors", text: $vm.searchText)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .foregroundColor(AppPalette.primaryText(for: colorScheme))
+
+                if !vm.searchText.isEmpty {
+                    Button(action: {
+                        vm.searchText = ""
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+            .padding(12)
+            .background(AppPalette.subtleFill(for: colorScheme))
+            .cornerRadius(12)
         }
     }
 
@@ -156,7 +320,7 @@ struct CommunityFeedView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Browse Tags")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(AppPalette.primaryText(for: colorScheme))
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -552,7 +716,9 @@ struct CommunityPostComposerView: View {
 }
 
 struct CommunityPostCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let post: CommunityPost
+    var onTagTap: ((String) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -561,14 +727,14 @@ struct CommunityPostCard: View {
             if !post.caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text(post.caption)
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.88))
+                    .foregroundColor(AppPalette.primaryText(for: colorScheme).opacity(0.88))
                     .lineLimit(3)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(post.torrent.name)
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(AppPalette.primaryText(for: colorScheme))
                     .lineLimit(2)
 
                 HStack(spacing: 8) {
@@ -584,17 +750,22 @@ struct CommunityPostCard: View {
             }
 
             if !post.tags.isEmpty {
-                CommunityTagWrap(tags: post.tags)
+                CommunityTagWrap(tags: post.tags, onTap: onTagTap)
             }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06))
+        .background(AppPalette.cardBackground(for: colorScheme))
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AppPalette.cardBorder(for: colorScheme), lineWidth: 1)
+        )
     }
 }
 
 struct CommunityPostHeader<PostType: CommunityPostPresentable>: View {
+    @Environment(\.colorScheme) private var colorScheme
     let post: PostType
 
     var body: some View {
@@ -603,10 +774,10 @@ struct CommunityPostHeader<PostType: CommunityPostPresentable>: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(post.authorHandle)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(AppPalette.primaryText(for: colorScheme))
                     Text(post.created_at.communityTimestamp)
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppPalette.secondaryText(for: colorScheme))
                 }
 
                 Spacer()
@@ -624,6 +795,7 @@ struct CommunityPostHeader<PostType: CommunityPostPresentable>: View {
 }
 
 struct CommunityCommentRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let comment: CommunityComment
 
     var body: some View {
@@ -631,23 +803,28 @@ struct CommunityCommentRow: View {
             HStack {
                 Text(comment.authorHandle)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(AppPalette.primaryText(for: colorScheme))
                 Spacer()
                 Text(comment.created_at.communityTimestamp)
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppPalette.secondaryText(for: colorScheme))
             }
             Text(comment.content)
-                .foregroundColor(.white.opacity(0.88))
+                .foregroundColor(AppPalette.primaryText(for: colorScheme).opacity(0.88))
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06))
+        .background(AppPalette.cardBackground(for: colorScheme))
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AppPalette.cardBorder(for: colorScheme), lineWidth: 1)
+        )
     }
 }
 
 struct CommunityMessageView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let icon: String
     let title: String
     let message: String
@@ -659,10 +836,10 @@ struct CommunityMessageView: View {
                 .foregroundColor(.purple.opacity(0.8))
             Text(title)
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(AppPalette.primaryText(for: colorScheme))
             Text(message)
                 .font(.subheadline)
-                .foregroundColor(.gray)
+                .foregroundColor(AppPalette.secondaryText(for: colorScheme))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
         }
@@ -686,12 +863,18 @@ struct CommunityTag: View {
 
 struct CommunityTagWrap: View {
     let tags: [String]
+    var onTap: ((String) -> Void)? = nil
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(tags, id: \.self) { tag in
-                    CommunityTag(text: "#\(tag)", color: .cyan)
+                    Button(action: {
+                        onTap?(tag)
+                    }) {
+                        CommunityTag(text: "#\(tag)", color: .cyan)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }

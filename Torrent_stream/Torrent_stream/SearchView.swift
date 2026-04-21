@@ -27,7 +27,7 @@ final class SearchViewModel: ObservableObject {
                 response = try await APIService.shared.trending(category: selectedCategory == "4k" ? "video" : selectedCategory)
                 totalPages = 1
             case .recent:
-                response = try await APIService.shared.recent()
+                response = try await APIService.shared.recent(category: selectedCategory == "4k" ? "video" : selectedCategory)
                 totalPages = 1
             case .search:
                 guard !query.isEmpty else {
@@ -52,26 +52,26 @@ final class SearchViewModel: ObservableObject {
 }
 
 struct SearchView: View {
-    @EnvironmentObject var auth: AuthViewModel
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var vm = SearchViewModel()
     @State private var selectedTorrent: TorrentItem? = nil
 
     var body: some View {
         NavigationView {
             ZStack {
-                Color.black.ignoresSafeArea()
+                AppPalette.background(for: colorScheme).ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     HStack {
                         HStack {
                             Image(systemName: "magnifyingglass").foregroundColor(.gray)
                             TextField("Search torrents...", text: $vm.query)
-                                .foregroundColor(.white)
+                                .foregroundColor(AppPalette.primaryText(for: colorScheme))
                                 .submitLabel(.search)
                                 .onSubmit { Task { await vm.search() } }
                         }
                         .padding(10)
-                        .background(Color.white.opacity(0.1))
+                        .background(AppPalette.subtleFill(for: colorScheme))
                         .cornerRadius(12)
 
                         Menu {
@@ -122,7 +122,7 @@ struct SearchView: View {
                         Spacer()
                     } else if vm.results.isEmpty {
                         Spacer()
-                        Text("No results").foregroundColor(.gray)
+                        Text("No results").foregroundColor(AppPalette.secondaryText(for: colorScheme))
                         Spacer()
                     } else {
                         ScrollView {
@@ -137,25 +137,7 @@ struct SearchView: View {
                     }
                 }
             }
-            .navigationTitle("TorrentStream")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    HStack {
-                        Image(systemName: "play.circle.fill")
-                            .foregroundColor(.purple)
-                        Text("TorrentStream")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: ProfileView().environmentObject(auth)) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .foregroundColor(.purple)
-                    }
-                }
-            }
+            .appHeader("TorrentStream")
             .sheet(item: $selectedTorrent) { torrent in
                 TorrentDetailView(torrent: torrent)
             }
@@ -185,6 +167,7 @@ struct SearchView: View {
 }
 
 struct TorrentCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let torrent: TorrentItem
 
     var body: some View {
@@ -204,7 +187,7 @@ struct TorrentCard: View {
                 Text(torrent.name)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundColor(AppPalette.primaryText(for: colorScheme))
                     .lineLimit(2)
 
                 HStack(spacing: 8) {
@@ -225,8 +208,12 @@ struct TorrentCard: View {
             Image(systemName: "chevron.right").foregroundColor(.gray).font(.caption)
         }
         .padding(12)
-        .background(Color.white.opacity(0.06))
+        .background(AppPalette.cardBackground(for: colorScheme))
         .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(AppPalette.cardBorder(for: colorScheme), lineWidth: 1)
+        )
     }
 
     @ViewBuilder

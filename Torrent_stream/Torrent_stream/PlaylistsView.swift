@@ -37,6 +37,7 @@ final class PlaylistsVM: ObservableObject {
 }
 
 struct PlaylistsView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var vm = PlaylistsVM()
     @State private var showCreate = false
     @State private var selectedPlaylist: Playlist? = nil
@@ -44,7 +45,7 @@ struct PlaylistsView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color.black.ignoresSafeArea()
+                AppPalette.background(for: colorScheme).ignoresSafeArea()
 
                 if vm.isLoading {
                     ProgressView().tint(.purple)
@@ -66,8 +67,8 @@ struct PlaylistsView: View {
                             Button(action: { selectedPlaylist = playlist }) {
                                 PlaylistRow(playlist: playlist)
                             }
-                            .listRowBackground(Color.white.opacity(0.05))
-                            .listRowSeparatorTint(Color.white.opacity(0.08))
+                            .listRowBackground(AppPalette.cardBackground(for: colorScheme))
+                            .listRowSeparatorTint(AppPalette.cardBorder(for: colorScheme))
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     Task { await vm.delete(playlist.id) }
@@ -81,7 +82,7 @@ struct PlaylistsView: View {
                     .refreshable { await vm.load() }
                 }
             }
-            .navigationTitle("Playlists")
+            .appHeader("TorrentStream")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showCreate = true }) {
@@ -105,6 +106,7 @@ struct PlaylistsView: View {
 }
 
 struct PlaylistRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let playlist: Playlist
 
     var body: some View {
@@ -122,7 +124,7 @@ struct PlaylistRow: View {
                 Text(playlist.name)
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(AppPalette.primaryText(for: colorScheme))
                 if !playlist.description.isEmpty {
                     Text(playlist.description)
                         .font(.caption)

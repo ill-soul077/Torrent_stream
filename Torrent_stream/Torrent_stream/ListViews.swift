@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct UserListView<Content: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     let icon: String
     let color: Color
@@ -36,7 +37,7 @@ struct UserListView<Content: View>: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color.black.ignoresSafeArea()
+                AppPalette.background(for: colorScheme).ignoresSafeArea()
 
                 if isLoading {
                     ProgressView().tint(color)
@@ -46,7 +47,7 @@ struct UserListView<Content: View>: View {
                             .font(.largeTitle)
                             .foregroundColor(.orange)
                         Text(err)
-                            .foregroundColor(.gray)
+                            .foregroundColor(AppPalette.secondaryText(for: colorScheme))
                             .multilineTextAlignment(.center)
                             .padding()
                     }
@@ -57,10 +58,10 @@ struct UserListView<Content: View>: View {
                             .foregroundColor(color.opacity(0.4))
                         Text("Your \(title) is empty")
                             .font(.headline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(AppPalette.secondaryText(for: colorScheme))
                         Text("Search for torrents and add them here")
                             .font(.caption)
-                            .foregroundColor(.gray.opacity(0.7))
+                            .foregroundColor(AppPalette.secondaryText(for: colorScheme).opacity(0.7))
                     }
                 } else {
                     List {
@@ -68,8 +69,8 @@ struct UserListView<Content: View>: View {
                             ListItemRow(item: item, accentColor: color) {
                                 rowExtra(item)
                             }
-                                .listRowBackground(Color.white.opacity(0.05))
-                                .listRowSeparatorTint(Color.white.opacity(0.08))
+                                .listRowBackground(AppPalette.cardBackground(for: colorScheme))
+                                .listRowSeparatorTint(AppPalette.cardBorder(for: colorScheme))
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
                                         Task { await onDelete(item.list_id) }
@@ -83,8 +84,7 @@ struct UserListView<Content: View>: View {
                     .refreshable { await onRefresh() }
                 }
             }
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.large)
+            .appHeader(title)
         }
         .navigationViewStyle(.stack)
         .task { await onRefresh() }
@@ -92,6 +92,7 @@ struct UserListView<Content: View>: View {
 }
 
 struct ListItemRow<Extra: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
     let item: ListItem
     let accentColor: Color
     let extra: () -> Extra
@@ -123,7 +124,7 @@ struct ListItemRow<Extra: View>: View {
                 Text(item.torrent.name)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundColor(AppPalette.primaryText(for: colorScheme))
                     .lineLimit(2)
 
                 HStack(spacing: 6) {

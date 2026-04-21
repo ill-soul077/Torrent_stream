@@ -91,6 +91,7 @@ struct TorrentDetailView: View {
                                 .cornerRadius(12)
                         }
 
+                        listButton("eye.fill", "Watch") { addTo("watchlist") }
                         listButton("clock.fill", "Later") { addTo("watchlater") }
                         listButton("plus", "Playlist") { showAddToPlaylist = true }
                     }
@@ -137,6 +138,8 @@ struct TorrentDetailView: View {
         Task {
             do {
                 switch list {
+                case "watchlist":
+                    try await APIService.shared.addWatchlist(torrent)
                 case "watchlater":
                     try await APIService.shared.addWatchLater(torrent)
                 default:

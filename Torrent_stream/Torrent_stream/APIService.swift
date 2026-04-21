@@ -143,8 +143,8 @@ final class APIService {
         return try await perform(req)
     }
 
-    func recent() async throws -> SearchResponse {
-        let req = try request("/search/recent")
+    func recent(category: String = "all") async throws -> SearchResponse {
+        let req = try request("/search/recent?category=\(category.urlEncoded)")
         return try await perform(req)
     }
 

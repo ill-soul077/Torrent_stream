@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var auth: AuthViewModel
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showServerConfig = false
     @AppStorage("appTheme") private var appTheme = AppThemePreference.dark.rawValue
 
@@ -23,14 +24,14 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Profile", systemImage: "person.crop.circle.fill")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(AppPalette.primaryText(for: colorScheme))
                     Text(auth.email.isEmpty ? "Signed in" : auth.email)
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppPalette.secondaryText(for: colorScheme))
                 }
                 .padding(.vertical, 6)
             }
-            .listRowBackground(Color.white.opacity(0.05))
+            .listRowBackground(AppPalette.cardBackground(for: colorScheme))
 
             Section("Browse") {
                 NavigationLink(destination: WatchlistView()) {
@@ -46,7 +47,7 @@ struct ProfileView: View {
                     profileRow("Community", systemImage: "person.3.fill", color: .green)
                 }
             }
-            .listRowBackground(Color.white.opacity(0.05))
+            .listRowBackground(AppPalette.cardBackground(for: colorScheme))
 
             Section("Account") {
                 Button(action: toggleTheme) {
@@ -59,12 +60,11 @@ struct ProfileView: View {
                     profileRow("Sign Out", systemImage: "rectangle.portrait.and.arrow.right", color: .red)
                 }
             }
-            .listRowBackground(Color.white.opacity(0.05))
+            .listRowBackground(AppPalette.cardBackground(for: colorScheme))
         }
         .scrollContentBackground(.hidden)
-        .background(Color.black.ignoresSafeArea())
-        .navigationTitle("Profile")
-        .navigationBarTitleDisplayMode(.inline)
+        .background(AppPalette.background(for: colorScheme).ignoresSafeArea())
+        .appHeader("TorrentStream", showProfileLink: false)
         .sheet(isPresented: $showServerConfig) {
             ServerConfigSheet().environmentObject(auth)
         }
@@ -78,7 +78,7 @@ struct ProfileView: View {
                 .foregroundColor(color)
                 .frame(width: 20)
             Text(title)
-                .foregroundColor(.white)
+                .foregroundColor(AppPalette.primaryText(for: colorScheme))
             Spacer()
         }
     }
