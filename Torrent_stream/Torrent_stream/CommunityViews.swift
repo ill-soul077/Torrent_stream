@@ -149,77 +149,82 @@ struct CommunityFeedView: View {
     @StateObject private var vm = CommunityFeedViewModel()
 
     var body: some View {
-        ZStack {
-            AppPalette.background(for: colorScheme).ignoresSafeArea()
+        NavigationView {
+            ZStack {
+                AppPalette.background(for: colorScheme).ignoresSafeArea()
 
-            if vm.isLoading && vm.posts.isEmpty {
-                ProgressView().tint(.purple)
-            } else if let error = vm.error, vm.posts.isEmpty {
-                CommunityMessageView(
-                    icon: "exclamationmark.triangle.fill",
-                    title: "Could not load Community",
-                    message: error
-                )
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        searchSection
+                if vm.isLoading && vm.posts.isEmpty {
+                    ProgressView().tint(.purple)
+                } else if let error = vm.error, vm.posts.isEmpty {
+                    CommunityMessageView(
+                        icon: "exclamationmark.triangle.fill",
+                        title: "Could not load Community",
+                        message: error
+                    )
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            searchSection
 
-                        if !vm.availableTags.isEmpty || vm.selectedTag != nil {
-                            tagFilterSection
-                        }
+                            if !vm.availableTags.isEmpty || vm.selectedTag != nil {
+                                tagFilterSection
+                            }
 
-                        if let error = vm.error {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundColor(.red)
-                        }
+                            postsSection
 
-                        if vm.posts.isEmpty {
-                            CommunityMessageView(
-                                icon: "person.3.fill",
-                                title: "No posts yet",
-                                message: "Share a torrent from its detail page to start the conversation."
-                            )
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 24)
-                        } else if vm.filteredPosts.isEmpty {
-                            CommunityMessageView(
-                                icon: "magnifyingglass",
-                                title: "No matching posts",
-                                message: "Try a different search term or tag."
-                            )
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 24)
-                        } else {
-                            ForEach(vm.filteredPosts) { post in
-                                VStack(alignment: .leading, spacing: 10) {
-                                    NavigationLink(destination: CommunityPostDetailView(postID: post.id)) {
-                                        CommunityPostCard(
-                                            post: post,
-                                            onTagTap: { tag in
-                                                Task { await vm.selectTag(tag) }
-                                            }
-                                        )
+                            if let error = vm.error {
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+
+                            if vm.posts.isEmpty {
+                                CommunityMessageView(
+                                    icon: "person.3.fill",
+                                    title: "No posts yet",
+                                    message: "Share a torrent from its detail page to start the conversation."
+                                )
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 24)
+                            } else if vm.filteredPosts.isEmpty {
+                                CommunityMessageView(
+                                    icon: "magnifyingglass",
+                                    title: "No matching posts",
+                                    message: "Try a different search term or tag."
+                                )
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 24)
+                            } else {
+                                ForEach(vm.filteredPosts) { post in
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        NavigationLink(destination: CommunityPostDetailView(postID: post.id)) {
+                                            CommunityPostCard(
+                                                post: post,
+                                                onTagTap: { tag in
+                                                    Task { await vm.selectTag(tag) }
+                                                }
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        feedActionBar(post: post)
                                     }
-                                    .buttonStyle(.plain)
-
-                                    feedActionBar(post: post)
                                 }
                             }
                         }
+                        .padding()
                     }
-                    .padding()
-                }
-                .refreshable {
-                    await vm.load()
+                    .refreshable {
+                        await vm.load()
+                    }
                 }
             }
+            .appHeader("TorrentStream")
+            .task {
+                await vm.load()
+            }
         }
-        .appHeader("TorrentStream")
-        .task {
-            await vm.load()
-        }
+        .navigationViewStyle(.stack)
     }
 
     private func feedActionBar(post: CommunityPost) -> some View {
@@ -288,9 +293,9 @@ struct CommunityFeedView: View {
 
     private var searchSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-                Text("Search Community")
-                    .font(.headline)
-                    .foregroundColor(AppPalette.primaryText(for: colorScheme))
+            Text("Search")
+                .font(.headline)
+                .foregroundColor(AppPalette.primaryText(for: colorScheme))
 
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
@@ -318,7 +323,7 @@ struct CommunityFeedView: View {
 
     private var tagFilterSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Browse Tags")
+            Text("Tags")
                 .font(.headline)
                 .foregroundColor(AppPalette.primaryText(for: colorScheme))
 
@@ -336,6 +341,13 @@ struct CommunityFeedView: View {
                 }
             }
         }
+    }
+
+    private var postsSection: some View {
+        Text("Posts")
+            .font(.headline)
+            .foregroundColor(AppPalette.primaryText(for: colorScheme))
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func filterChip(title: String, isActive: Bool, action: @escaping () -> Void) -> some View {

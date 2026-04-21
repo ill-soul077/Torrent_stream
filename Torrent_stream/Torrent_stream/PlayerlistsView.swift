@@ -258,7 +258,7 @@ struct PlaylistDetailView: View {
             .navigationTitle(playlist.name)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") { dismiss() }
+                    Button("Back") { dismiss() }
                 }
             }
             .sheet(item: Binding(

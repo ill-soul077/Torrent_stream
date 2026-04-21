@@ -148,6 +148,12 @@ final class APIService {
         return try await perform(req)
     }
 
+    func recordSearchHit(_ torrent: TorrentItem) async throws {
+        struct Resp: Decodable { let message: String }
+        let req = try request("/search/hit", method: "POST", body: torrent.toPayload())
+        let _: Resp = try await perform(req)
+    }
+
     func getWatchlist() async throws -> [ListItem] {
         let req = try request("/lists/watchlist")
         return try await perform(req)

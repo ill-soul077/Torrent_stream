@@ -163,7 +163,12 @@ struct SearchView: View {
                             LazyVStack(spacing: 12) {
                                 ForEach(vm.results) { torrent in
                                     TorrentCard(torrent: torrent)
-                                        .onTapGesture { selectedTorrent = torrent }
+                                        .onTapGesture {
+                                            Task {
+                                                try? await APIService.shared.recordSearchHit(torrent)
+                                                selectedTorrent = torrent
+                                            }
+                                        }
                                 }
                             }
                             .padding()

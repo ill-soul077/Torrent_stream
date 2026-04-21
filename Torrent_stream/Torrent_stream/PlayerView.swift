@@ -445,7 +445,7 @@ struct PlayerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
+                    Button("Back") {
                         vm.stop()
                         dismiss()
                     }
