@@ -243,8 +243,14 @@ final class APIService {
 
     // ─── Community ──────────────────────────────────────────────────────
 
-    func getCommunityPosts() async throws -> [CommunityPost] {
-        let req = try request("/community/posts")
+    func getCommunityPosts(tag: String? = nil) async throws -> [CommunityPost] {
+        let path: String
+        if let tag, !tag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            path = "/community/posts?tag=\(tag.urlEncoded)"
+        } else {
+            path = "/community/posts"
+        }
+        let req = try request(path)
         return try await perform(req)
     }
 
@@ -258,10 +264,11 @@ final class APIService {
         return try await perform(req)
     }
 
-    func createCommunityPost(caption: String, torrent: TorrentItem) async throws -> CommunityPost {
+    func createCommunityPost(caption: String, torrent: TorrentItem, tags: [String]) async throws -> CommunityPost {
         let body = CommunityPostCreateRequest(
             caption: caption,
-            torrent: torrent.toPayload()
+            torrent: torrent.toPayload(),
+            tags: tags
         )
         let req = try request("/community/posts", method: "POST", body: body)
         return try await perform(req)

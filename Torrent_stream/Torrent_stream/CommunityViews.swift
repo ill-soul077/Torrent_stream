@@ -3,8 +3,13 @@ import SwiftUI
 @MainActor
 final class CommunityFeedViewModel: ObservableObject {
     @Published var posts: [CommunityPost] = []
+    @Published var selectedTag: String? = nil
     @Published var isLoading = false
     @Published var error: String? = nil
+
+    var availableTags: [String] {
+        Array(Set(posts.flatMap { $0.tags })).sorted()
+    }
 
     func load() async {
         isLoading = true
@@ -12,10 +17,15 @@ final class CommunityFeedViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            posts = try await APIService.shared.getCommunityPosts()
+            posts = try await APIService.shared.getCommunityPosts(tag: selectedTag)
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    func selectTag(_ tag: String?) async {
+        selectedTag = tag
+        await load()
     }
 }
 
@@ -116,7 +126,11 @@ struct CommunityFeedView: View {
                 )
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if !vm.availableTags.isEmpty || vm.selectedTag != nil {
+                            tagFilterSection
+                        }
+
                         ForEach(vm.posts) { post in
                             NavigationLink(destination: CommunityPostDetailView(postID: post.id)) {
                                 CommunityPostCard(post: post)
@@ -135,6 +149,40 @@ struct CommunityFeedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await vm.load()
+        }
+    }
+
+    private var tagFilterSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Browse Tags")
+                .font(.headline)
+                .foregroundColor(.white)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    filterChip(title: "All", isActive: vm.selectedTag == nil) {
+                        Task { await vm.selectTag(nil) }
+                    }
+
+                    ForEach(vm.availableTags, id: \.self) { tag in
+                        filterChip(title: "#\(tag)", isActive: vm.selectedTag == tag) {
+                            Task { await vm.selectTag(tag) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func filterChip(title: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(isActive ? .black : .white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(isActive ? Color.white : Color.white.opacity(0.08))
+                .cornerRadius(999)
         }
     }
 }
@@ -179,6 +227,10 @@ struct CommunityPostDetailView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.white.opacity(0.06))
                             .cornerRadius(12)
+                        }
+
+                        if !post.tags.isEmpty {
+                            CommunityTagWrap(tags: post.tags)
                         }
 
                         VStack(alignment: .leading, spacing: 12) {
@@ -320,6 +372,8 @@ struct CommunityPostComposerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var caption = ""
+    @State private var tagDraft = ""
+    @State private var tags: [String] = []
     @State private var isSubmitting = false
     @State private var error: String? = nil
 
@@ -371,6 +425,59 @@ struct CommunityPostComposerView: View {
                                 .foregroundColor(.gray)
                         }
 
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Tags")
+                                .font(.headline)
+                                .foregroundColor(.white)
+
+                            HStack(spacing: 10) {
+                                TextField("Add a tag", text: $tagDraft)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .padding(12)
+                                    .background(Color.white.opacity(0.07))
+                                    .cornerRadius(8)
+                                    .foregroundColor(.white)
+
+                                Button("Add") {
+                                    addTag()
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .background(Color.blue.opacity(0.8))
+                                .cornerRadius(8)
+                            }
+
+                            if !tags.isEmpty {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(tags, id: \.self) { tag in
+                                            Button(action: {
+                                                tags.removeAll { $0 == tag }
+                                            }) {
+                                                HStack(spacing: 6) {
+                                                    Text("#\(tag)")
+                                                    Image(systemName: "xmark.circle.fill")
+                                                }
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 7)
+                                                .background(Color.blue.opacity(0.22))
+                                                .cornerRadius(999)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text("Up to 5 tags. Example: thriller, family, sci-fi")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+
                         if let error = error {
                             Text(error)
                                 .font(.caption)
@@ -411,7 +518,8 @@ struct CommunityPostComposerView: View {
             do {
                 _ = try await APIService.shared.createCommunityPost(
                     caption: caption.trimmingCharacters(in: .whitespacesAndNewlines),
-                    torrent: torrent
+                    torrent: torrent,
+                    tags: tags
                 )
                 onPosted?("Posted to Community")
                 dismiss()
@@ -419,6 +527,27 @@ struct CommunityPostComposerView: View {
                 self.error = error.localizedDescription
             }
         }
+    }
+
+    private func addTag() {
+        let normalized = tagDraft
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "#", with: "")
+
+        guard !normalized.isEmpty else { return }
+        guard !tags.contains(normalized) else {
+            tagDraft = ""
+            return
+        }
+        guard tags.count < 5 else {
+            error = "You can add up to 5 tags."
+            return
+        }
+
+        tags.append(normalized)
+        tagDraft = ""
+        error = nil
     }
 }
 
@@ -452,6 +581,10 @@ struct CommunityPostCard: View {
                     CommunityTag(text: "Score \(post.score)", color: .green)
                     CommunityTag(text: "\(post.comment_count) comments", color: .orange)
                 }
+            }
+
+            if !post.tags.isEmpty {
+                CommunityTagWrap(tags: post.tags)
             }
         }
         .padding()
@@ -548,6 +681,20 @@ struct CommunityTag: View {
             .padding(.vertical, 4)
             .background(color.opacity(0.15))
             .cornerRadius(6)
+    }
+}
+
+struct CommunityTagWrap: View {
+    let tags: [String]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(tags, id: \.self) { tag in
+                    CommunityTag(text: "#\(tag)", color: .cyan)
+                }
+            }
+        }
     }
 }
 

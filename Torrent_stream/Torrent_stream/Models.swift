@@ -278,6 +278,7 @@ struct CommunityPost: Codable, Identifiable {
     let author_email: String
     let caption: String
     let torrent: TorrentItem
+    let tags: [String]
     var score: Int
     var upvote_count: Int
     var downvote_count: Int
@@ -292,6 +293,7 @@ struct CommunityPost: Codable, Identifiable {
         case author_email
         case caption
         case torrent
+        case tags
         case score
         case upvote_count
         case downvote_count
@@ -306,6 +308,7 @@ struct CommunityPost: Codable, Identifiable {
         author_email = try container.decode(String.self, forKey: .author_email)
         caption = try container.decode(String.self, forKey: .caption)
         torrent = try container.decode(TorrentItem.self, forKey: .torrent)
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
         score = try container.decode(Int.self, forKey: .score)
         upvote_count = try container.decode(Int.self, forKey: .upvote_count)
         downvote_count = try container.decode(Int.self, forKey: .downvote_count)
@@ -320,6 +323,7 @@ struct CommunityPostDetail: Codable, Identifiable {
     let author_email: String
     let caption: String
     let torrent: TorrentItem
+    let tags: [String]
     var score: Int
     var upvote_count: Int
     var downvote_count: Int
@@ -334,6 +338,7 @@ struct CommunityPostDetail: Codable, Identifiable {
         case author_email
         case caption
         case torrent
+        case tags
         case score
         case upvote_count
         case downvote_count
@@ -348,6 +353,7 @@ struct CommunityPostDetail: Codable, Identifiable {
         author_email = try container.decode(String.self, forKey: .author_email)
         caption = try container.decode(String.self, forKey: .caption)
         torrent = try container.decode(TorrentItem.self, forKey: .torrent)
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
         score = try container.decode(Int.self, forKey: .score)
         upvote_count = try container.decode(Int.self, forKey: .upvote_count)
         downvote_count = try container.decode(Int.self, forKey: .downvote_count)
@@ -414,6 +420,7 @@ extension TorrentItem {
 struct CommunityPostCreateRequest: Encodable {
     let caption: String
     let torrent: TorrentPayload
+    let tags: [String]
 }
 
 struct CommunityCommentCreateRequest: Encodable {
