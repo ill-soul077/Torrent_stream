@@ -269,7 +269,8 @@ final class PlayerViewModel: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            self.statusText = "Playback stalled. Waiting for more data…"
+            let reason = item.error?.localizedDescription ?? item.errorLog()?.events.last?.errorComment
+            self.statusText = reason.map { "Playback stalled: \($0)" } ?? "Playback stalled. Waiting for more data…"
         }
     }
 
@@ -291,7 +292,9 @@ final class PlayerViewModel: ObservableObject {
 
         switch item.status {
         case .failed:
-            let message = item.error?.localizedDescription ?? "Playback failed"
+            let message = item.error?.localizedDescription
+                ?? item.errorLog()?.events.last?.errorComment
+                ?? "Playback failed"
             handlePlaybackFailure(message)
 
         case .readyToPlay:
@@ -347,7 +350,9 @@ final class PlayerViewModel: ObservableObject {
             return
         }
 
-        let message = item.error?.localizedDescription ?? "Playback did not start"
+        let message = item.error?.localizedDescription
+            ?? item.errorLog()?.events.last?.errorComment
+            ?? "Playback did not start"
         handlePlaybackFailure(message)
     }
 
