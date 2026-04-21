@@ -22,6 +22,7 @@
 		221D6A4A2F851E2F00498861 /* TorrentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 221D6A492F851E2F00498861 /* TorrentDetailView.swift */; };
 		22C1A1012F8600010041F37C /* CommunityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C1A1002F8600010041F37C /* CommunityViews.swift */; };
 		229171EB2F858FE80041F37C /* PlaylistsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229171EA2F858FE80041F37C /* PlaylistsView.swift */; };
+		22F0C001300000000041F37C /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22F0C000300000000041F37C /* ProfileView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 		221D6A492F851E2F00498861 /* TorrentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorrentDetailView.swift; sourceTree = "<group>"; };
 		22C1A1002F8600010041F37C /* CommunityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityViews.swift; sourceTree = "<group>"; };
 		229171EA2F858FE80041F37C /* PlaylistsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistsView.swift; sourceTree = "<group>"; };
+		22F0C000300000000041F37C /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +86,7 @@
 				221D6A3F2F851CFF00498861 /* MainTabView.swift */,
 				221D6A412F851D1800498861 /* Models.swift */,
 				221D6A432F851D6200498861 /* PlayerView.swift */,
+				22F0C000300000000041F37C /* ProfileView.swift */,
 				221D6A472F851DF300498861 /* SearchView.swift */,
 				221D6A492F851E2F00498861 /* TorrentDetailView.swift */,
 				22C1A1002F8600010041F37C /* CommunityViews.swift */,
@@ -183,6 +186,7 @@
 				221D6A362F851B6500498861 /* APIService.swift in Sources */,
 				221D6A282F851ABB00498861 /* Torrent_streamApp.swift in Sources */,
 				221D6A482F851DF300498861 /* SearchView.swift in Sources */,
+				22F0C001300000000041F37C /* ProfileView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
