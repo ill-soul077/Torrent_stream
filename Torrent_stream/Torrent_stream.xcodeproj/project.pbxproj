@@ -21,6 +21,7 @@
 		221D6A482F851DF300498861 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 221D6A472F851DF300498861 /* SearchView.swift */; };
 		221D6A4A2F851E2F00498861 /* TorrentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 221D6A492F851E2F00498861 /* TorrentDetailView.swift */; };
 		22C1A1012F8600010041F37C /* CommunityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C1A1002F8600010041F37C /* CommunityViews.swift */; };
+		22AB1001300000000041F37C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22AB1000300000000041F37C /* OnboardingView.swift */; };
 		229171EB2F858FE80041F37C /* PlaylistsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229171EA2F858FE80041F37C /* PlaylistsView.swift */; };
 		22F0C001300000000041F37C /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22F0C000300000000041F37C /* ProfileView.swift */; };
 /* End PBXBuildFile section */
@@ -41,6 +42,7 @@
 		221D6A472F851DF300498861 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		221D6A492F851E2F00498861 /* TorrentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorrentDetailView.swift; sourceTree = "<group>"; };
 		22C1A1002F8600010041F37C /* CommunityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityViews.swift; sourceTree = "<group>"; };
+		22AB1000300000000041F37C /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		229171EA2F858FE80041F37C /* PlaylistsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistsView.swift; sourceTree = "<group>"; };
 		22F0C000300000000041F37C /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -85,6 +87,7 @@
 				221D6A3D2F851C6000498861 /* LoginView.swift */,
 				221D6A3F2F851CFF00498861 /* MainTabView.swift */,
 				221D6A412F851D1800498861 /* Models.swift */,
+				22AB1000300000000041F37C /* OnboardingView.swift */,
 				221D6A432F851D6200498861 /* PlayerView.swift */,
 				22F0C000300000000041F37C /* ProfileView.swift */,
 				221D6A472F851DF300498861 /* SearchView.swift */,
@@ -184,6 +187,7 @@
 				221D6A3C2F851C1900498861 /* ListViews.swift in Sources */,
 				221D6A402F851CFF00498861 /* MainTabView.swift in Sources */,
 				221D6A362F851B6500498861 /* APIService.swift in Sources */,
+				22AB1001300000000041F37C /* OnboardingView.swift in Sources */,
 				221D6A282F851ABB00498861 /* Torrent_streamApp.swift in Sources */,
 				221D6A482F851DF300498861 /* SearchView.swift in Sources */,
 				22F0C001300000000041F37C /* ProfileView.swift in Sources */,

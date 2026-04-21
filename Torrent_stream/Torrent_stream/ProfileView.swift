@@ -3,6 +3,19 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject var auth: AuthViewModel
     @State private var showServerConfig = false
+    @AppStorage("appTheme") private var appTheme = AppThemePreference.dark.rawValue
+
+    private var theme: AppThemePreference {
+        AppThemePreference(rawValue: appTheme) ?? .dark
+    }
+
+    private var themeButtonTitle: String {
+        theme == .dark ? "Switch to Light Theme" : "Switch to Dark Theme"
+    }
+
+    private var themeButtonIcon: String {
+        theme == .dark ? "sun.max.fill" : "moon.fill"
+    }
 
     var body: some View {
         List {
@@ -36,6 +49,9 @@ struct ProfileView: View {
             .listRowBackground(Color.white.opacity(0.05))
 
             Section("Account") {
+                Button(action: toggleTheme) {
+                    profileRow(themeButtonTitle, systemImage: themeButtonIcon, color: .purple)
+                }
                 Button(action: { showServerConfig = true }) {
                     profileRow("Server Settings", systemImage: "server.rack", color: .gray)
                 }
@@ -52,6 +68,7 @@ struct ProfileView: View {
         .sheet(isPresented: $showServerConfig) {
             ServerConfigSheet().environmentObject(auth)
         }
+        .animation(.easeInOut(duration: 0.3), value: appTheme)
     }
 
     @ViewBuilder
@@ -64,5 +81,11 @@ struct ProfileView: View {
                 .foregroundColor(.white)
             Spacer()
         }
+    }
+
+    private func toggleTheme() {
+        var nextTheme = theme
+        nextTheme.toggle()
+        appTheme = nextTheme.rawValue
     }
 }

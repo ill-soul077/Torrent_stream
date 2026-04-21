@@ -3,11 +3,19 @@ import SwiftUI
 @main
 struct Torrent_streamApp: App {
     @StateObject private var auth = AuthViewModel()
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @AppStorage("appTheme") private var appTheme = AppThemePreference.dark.rawValue
+
+    private var theme: AppThemePreference {
+        AppThemePreference(rawValue: appTheme) ?? .dark
+    }
 
     var body: some Scene {
         WindowGroup {
             Group {
-                if auth.isLoggedIn {
+                if !hasSeenOnboarding {
+                    OnboardingView()
+                } else if auth.isLoggedIn {
                     MainTabView()
                         .environmentObject(auth)
                 } else {
@@ -15,7 +23,7 @@ struct Torrent_streamApp: App {
                         .environmentObject(auth)
                 }
             }
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(theme.colorScheme)
         }
     }
 }

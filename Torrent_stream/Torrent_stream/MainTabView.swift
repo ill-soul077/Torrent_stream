@@ -37,6 +37,5 @@ struct MainTabView: View {
                 .tag(4)
         }
         .accentColor(.purple)
-        .preferredColorScheme(.dark)
     }
 }
