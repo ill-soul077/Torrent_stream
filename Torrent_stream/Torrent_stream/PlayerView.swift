@@ -21,13 +21,11 @@ final class PlayerViewModel: ObservableObject {
 
     private var socketTask: URLSessionWebSocketTask? = nil
     private var socketListenTask: Task<Void, Never>? = nil
-    private var fallbackAttempted = false
 
     func start(torrent: TorrentItem) async {
         stop()
         phase = .loading
         statusText = "Connecting to torrent session…"
-        fallbackAttempted = false
 
         do {
             let socket = try APIService.shared.openStreamSocket(hash: torrent.hash)
@@ -44,9 +42,9 @@ final class PlayerViewModel: ObservableObject {
                 await self?.listenToSocket(socket, torrent: torrent)
             }
         } catch let apiError as APIError {
-            await fallbackToHTTPPrepare(torrent: torrent, reason: apiError.localizedDescription)
+            phase = .failed(apiError.localizedDescription)
         } catch {
-            await fallbackToHTTPPrepare(torrent: torrent, reason: error.localizedDescription)
+            phase = .failed(error.localizedDescription)
         }
     }
 
@@ -63,7 +61,6 @@ final class PlayerViewModel: ObservableObject {
         downloadRate = 0
         selectedVideoName = nil
         subtitleTracks = []
-        fallbackAttempted = false
         phase = .idle
     }
 
@@ -88,45 +85,9 @@ final class PlayerViewModel: ObservableObject {
                     return
                 }
 
-                await fallbackToHTTPPrepare(
-                    torrent: torrent,
-                    reason: "Stream socket disconnected: \(error.localizedDescription)"
-                )
+                phase = .failed("Stream socket disconnected: \(error.localizedDescription)")
                 return
             }
-        }
-    }
-
-    private func fallbackToHTTPPrepare(torrent: TorrentItem, reason: String) async {
-        if fallbackAttempted {
-            phase = .failed(reason)
-            return
-        }
-
-        fallbackAttempted = true
-        socketListenTask?.cancel()
-        socketListenTask = nil
-        socketTask?.cancel(with: .goingAway, reason: nil)
-        socketTask = nil
-        statusText = "WebSocket unavailable, using HTTP prepare fallback…"
-
-        do {
-            guard let prepared = try await APIService.shared.prepareStream(magnet: torrent.magnet, hash: torrent.hash) else {
-                phase = .failed("Could not prepare stream from backend response.")
-                return
-            }
-
-            selectedVideoName = prepared.payload.selected_video?.name
-            subtitleTracks = prepared.payload.subtitle_tracks ?? []
-
-            let player = AVPlayer(url: prepared.url)
-            player.automaticallyWaitsToMinimizeStalling = true
-            self.player = player
-            self.phase = .playing
-            self.statusText = "Streaming: \(torrent.name)"
-            player.play()
-        } catch {
-            phase = .failed(reason)
         }
     }
 
