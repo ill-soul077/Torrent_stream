@@ -466,9 +466,12 @@ struct MagnetStreamResponse: Codable {
     let hash: String
     let stream_path: String
     let stream_url: String?
+    let hls_path: String?
+    let hls_url: String?
     let content_type: String?
     let magnet: String?
     let selected_video: StreamSelectedVideo?
+    let selected_media: StreamSelectedVideo?
     let subtitles_available: Bool?
     let subtitle_tracks: [StreamSubtitleTrack]?
     let message: String
@@ -478,6 +481,7 @@ struct StreamSelectedVideo: Codable {
     let name: String
     let path: String
     let size: Int64
+    let kind: String?
     let content_type: String?
 }
 
@@ -503,10 +507,16 @@ struct StreamSocketEvent: Codable {
     let state: String?
     let has_metadata: Bool?
     let stream_url: String?
+    let hls_url: String?
+    let playback_mode: String?
     let content_type: String?
     let selected_video: StreamSelectedVideo?
+    let selected_media: StreamSelectedVideo?
     let subtitles_available: Bool?
     let subtitle_tracks: [StreamSubtitleTrack]?
+    let file_bytes: Int?
+    let ready_bytes: Int?
+    let file_ready: Bool?
 }
 
 struct TorrentFile: Codable, Identifiable, Hashable {

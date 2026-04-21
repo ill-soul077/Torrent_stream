@@ -48,6 +48,7 @@ final class APIService {
 
     struct PreparedStream {
         let url: URL
+        let fallbackURL: URL?
         let payload: MagnetStreamResponse
     }
 
@@ -240,7 +241,7 @@ final class APIService {
         if APIConfig.baseURL.hasPrefix("https://") {
             wsBase = APIConfig.baseURL.replacingOccurrences(of: "https://", with: "wss://")
         } else if APIConfig.baseURL.hasPrefix("http://") {
-            wsBase = APIConfig.baseURL.replacingOccurrences(of: "http://", with: "wss://")
+            wsBase = APIConfig.baseURL.replacingOccurrences(of: "http://", with: "ws://")
         } else {
             throw APIError.invalidURL
         }
@@ -254,6 +255,25 @@ final class APIService {
         let task = URLSession.shared.webSocketTask(with: try streamSocketURL(hash: hash))
         task.resume()
         return task
+    }
+
+    func receiveStreamSocketEvent(socket: URLSessionWebSocketTask) async throws -> StreamSocketEvent {
+        let message = try await socket.receive()
+        let data: Data
+        switch message {
+        case .data(let payload):
+            data = payload
+        case .string(let text):
+            data = Data(text.utf8)
+        @unknown default:
+            throw APIError.invalidURL
+        }
+
+        do {
+            return try JSONDecoder().decode(StreamSocketEvent.self, from: data)
+        } catch {
+            throw APIError.decodingError(error)
+        }
     }
 
     func sendStreamSocketInit(
@@ -288,25 +308,38 @@ final class APIService {
         req.timeoutInterval = 180
         let response: MagnetStreamResponse = try await perform(req)
 
-        guard let tok = token else { throw APIError.noToken }
-
-        let absoluteURLString = (response.stream_url?.isEmpty == false)
-            ? response.stream_url!
-            : (APIConfig.baseURL + response.stream_path)
-
-        guard var components = URLComponents(string: absoluteURLString) else {
+        guard let urls = try playbackURLs(
+            primaryAbsoluteURL: response.hls_url,
+            primaryPath: response.hls_path,
+            fallbackAbsoluteURL: response.stream_url,
+            fallbackPath: response.stream_path
+        ) else {
             return nil
         }
 
-        var queryItems = components.queryItems ?? []
-        queryItems.append(URLQueryItem(name: "token", value: tok))
-        components.queryItems = queryItems
-        guard let url = components.url else { return nil }
-        return PreparedStream(url: url, payload: response)
+        return PreparedStream(url: urls.primary, fallbackURL: urls.fallback, payload: response)
     }
 
     func getStreamURL(magnet: String, hash: String) async throws -> URL? {
         try await prepareStream(magnet: magnet, hash: hash)?.url
+    }
+
+    func playbackURLs(for event: StreamSocketEvent) throws -> (primary: URL, fallback: URL?)? {
+        try playbackURLs(
+            primaryAbsoluteURL: event.hls_url,
+            primaryPath: nil,
+            fallbackAbsoluteURL: event.stream_url,
+            fallbackPath: nil
+        )
+    }
+
+    func playbackURLs(for response: MagnetStreamResponse) throws -> (primary: URL, fallback: URL?)? {
+        try playbackURLs(
+            primaryAbsoluteURL: response.hls_url,
+            primaryPath: response.hls_path,
+            fallbackAbsoluteURL: response.stream_url,
+            fallbackPath: response.stream_path
+        )
     }
 
     @discardableResult
@@ -344,6 +377,58 @@ final class APIService {
                 return lhs.size > rhs.size
             }
             .first
+    }
+
+    private func playbackURLs(
+        primaryAbsoluteURL: String?,
+        primaryPath: String?,
+        fallbackAbsoluteURL: String?,
+        fallbackPath: String?
+    ) throws -> (primary: URL, fallback: URL?)? {
+        let primary = try authorizedPlaybackURL(absoluteURLString: primaryAbsoluteURL, path: primaryPath)
+        let fallback = try authorizedPlaybackURL(absoluteURLString: fallbackAbsoluteURL, path: fallbackPath)
+
+        if let primary {
+            if let fallback, fallback != primary {
+                return (primary, fallback)
+            }
+            return (primary, nil)
+        }
+
+        if let fallback {
+            return (fallback, nil)
+        }
+
+        return nil
+    }
+
+    private func authorizedPlaybackURL(absoluteURLString: String?, path: String?) throws -> URL? {
+        let baseValue: String?
+        if let absoluteURLString, !absoluteURLString.isEmpty {
+            baseValue = absoluteURLString
+        } else if let path, !path.isEmpty {
+            baseValue = APIConfig.baseURL + path
+        } else {
+            baseValue = nil
+        }
+
+        guard let baseValue else { return nil }
+        guard var components = URLComponents(string: baseValue) else {
+            throw APIError.invalidURL
+        }
+
+        if let tok = token {
+            var queryItems = components.queryItems ?? []
+            if !queryItems.contains(where: { $0.name == "token" }) {
+                queryItems.append(URLQueryItem(name: "token", value: tok))
+            }
+            components.queryItems = queryItems
+        }
+
+        guard let url = components.url else {
+            throw APIError.invalidURL
+        }
+        return url
     }
 }
 
