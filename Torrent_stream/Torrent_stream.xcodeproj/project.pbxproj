@@ -20,6 +20,7 @@
 		221D6A442F851D6200498861 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 221D6A432F851D6200498861 /* PlayerView.swift */; };
 		221D6A482F851DF300498861 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 221D6A472F851DF300498861 /* SearchView.swift */; };
 		221D6A4A2F851E2F00498861 /* TorrentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 221D6A492F851E2F00498861 /* TorrentDetailView.swift */; };
+		22C1A1012F8600010041F37C /* CommunityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C1A1002F8600010041F37C /* CommunityViews.swift */; };
 		229171EB2F858FE80041F37C /* PlaylistsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229171EA2F858FE80041F37C /* PlaylistsView.swift */; };
 /* End PBXBuildFile section */
 
@@ -38,6 +39,7 @@
 		221D6A432F851D6200498861 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		221D6A472F851DF300498861 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		221D6A492F851E2F00498861 /* TorrentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorrentDetailView.swift; sourceTree = "<group>"; };
+		22C1A1002F8600010041F37C /* CommunityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityViews.swift; sourceTree = "<group>"; };
 		229171EA2F858FE80041F37C /* PlaylistsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -84,6 +86,7 @@
 				221D6A432F851D6200498861 /* PlayerView.swift */,
 				221D6A472F851DF300498861 /* SearchView.swift */,
 				221D6A492F851E2F00498861 /* TorrentDetailView.swift */,
+				22C1A1002F8600010041F37C /* CommunityViews.swift */,
 				229171EA2F858FE80041F37C /* PlaylistsView.swift */,
 			);
 			path = Torrent_stream;
@@ -173,6 +176,7 @@
 				221D6A382F851BA800498861 /* AuthViewModel.swift in Sources */,
 				221D6A2A2F851ABB00498861 /* ContentView.swift in Sources */,
 				221D6A422F851D1800498861 /* Models.swift in Sources */,
+				22C1A1012F8600010041F37C /* CommunityViews.swift in Sources */,
 				229171EB2F858FE80041F37C /* PlaylistsView.swift in Sources */,
 				221D6A3C2F851C1900498861 /* ListViews.swift in Sources */,
 				221D6A402F851CFF00498861 /* MainTabView.swift in Sources */,

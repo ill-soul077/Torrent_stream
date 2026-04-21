@@ -273,6 +273,114 @@ struct PlaylistItemEntry: Codable, Identifiable {
     }
 }
 
+struct CommunityPost: Codable, Identifiable {
+    let id: String
+    let author_email: String
+    let caption: String
+    let torrent: TorrentItem
+    var score: Int
+    var upvote_count: Int
+    var downvote_count: Int
+    var comment_count: Int
+    var user_vote: Int
+    let created_at: String
+
+    var authorHandle: String { author_email.emailHandle }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case author_email
+        case caption
+        case torrent
+        case score
+        case upvote_count
+        case downvote_count
+        case comment_count
+        case user_vote
+        case created_at
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeStringValue(forKey: .id)
+        author_email = try container.decode(String.self, forKey: .author_email)
+        caption = try container.decode(String.self, forKey: .caption)
+        torrent = try container.decode(TorrentItem.self, forKey: .torrent)
+        score = try container.decode(Int.self, forKey: .score)
+        upvote_count = try container.decode(Int.self, forKey: .upvote_count)
+        downvote_count = try container.decode(Int.self, forKey: .downvote_count)
+        comment_count = try container.decode(Int.self, forKey: .comment_count)
+        user_vote = try container.decode(Int.self, forKey: .user_vote)
+        created_at = try container.decode(String.self, forKey: .created_at)
+    }
+}
+
+struct CommunityPostDetail: Codable, Identifiable {
+    let id: String
+    let author_email: String
+    let caption: String
+    let torrent: TorrentItem
+    var score: Int
+    var upvote_count: Int
+    var downvote_count: Int
+    var comment_count: Int
+    var user_vote: Int
+    let created_at: String
+
+    var authorHandle: String { author_email.emailHandle }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case author_email
+        case caption
+        case torrent
+        case score
+        case upvote_count
+        case downvote_count
+        case comment_count
+        case user_vote
+        case created_at
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeStringValue(forKey: .id)
+        author_email = try container.decode(String.self, forKey: .author_email)
+        caption = try container.decode(String.self, forKey: .caption)
+        torrent = try container.decode(TorrentItem.self, forKey: .torrent)
+        score = try container.decode(Int.self, forKey: .score)
+        upvote_count = try container.decode(Int.self, forKey: .upvote_count)
+        downvote_count = try container.decode(Int.self, forKey: .downvote_count)
+        comment_count = try container.decode(Int.self, forKey: .comment_count)
+        user_vote = try container.decode(Int.self, forKey: .user_vote)
+        created_at = try container.decode(String.self, forKey: .created_at)
+    }
+}
+
+struct CommunityComment: Codable, Identifiable {
+    let id: String
+    let author_email: String
+    let content: String
+    let created_at: String
+
+    var authorHandle: String { author_email.emailHandle }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case author_email
+        case content
+        case created_at
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeStringValue(forKey: .id)
+        author_email = try container.decode(String.self, forKey: .author_email)
+        content = try container.decode(String.self, forKey: .content)
+        created_at = try container.decode(String.self, forKey: .created_at)
+    }
+}
+
 struct TorrentPayload: Codable {
     let name: String
     let size: String
@@ -301,6 +409,27 @@ extension TorrentItem {
             url: url
         )
     }
+}
+
+struct CommunityPostCreateRequest: Encodable {
+    let caption: String
+    let torrent: TorrentPayload
+}
+
+struct CommunityCommentCreateRequest: Encodable {
+    let content: String
+}
+
+struct CommunityVoteRequest: Encodable {
+    let value: Int
+}
+
+struct CommunityVoteState: Codable {
+    let score: Int
+    let upvote_count: Int
+    let downvote_count: Int
+    let comment_count: Int
+    let user_vote: Int
 }
 
 struct StreamStartResponse: Codable {
@@ -424,5 +553,11 @@ private extension KeyedDecodingContainer {
                 debugDescription: "Expected a string-compatible value"
             )
         )
+    }
+}
+
+private extension String {
+    var emailHandle: String {
+        split(separator: "@", maxSplits: 1).first.map(String.init) ?? self
     }
 }
